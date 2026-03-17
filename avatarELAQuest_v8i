@@ -3854,35 +3854,41 @@ function updateAwardPanel(){
     title.textContent = `Award Chi to: ${names}`;
   }
 }
-function awardChi(type, amount){
+async function awardChi(type, amount){
   if(selectedStudents.size===0){showToast('Select a student first!');return;}
-  const now = new Date();
-  const timeStr = now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');
   const selectedArr = [...selectedStudents];
-  const autoStreakQueue = []; // collect [idx, bonuses] to apply after main log renders
-  selectedArr.forEach(idx=>{
-    students[idx].chi += amount;
+  const autoStreakQueue = [];
+
+  for (const idx of selectedArr) {
+    const s = students[idx];
+    s.chi = Number(s.chi || 0) + Number(amount || 0);
     updateChiDisplay(idx);
-    const entry = {
-      name:`${students[idx].first} ${students[idx].last}`,
-      chiType:chiTypeName(students[idx]),
-      amount, type, time:timeStr,
-      chiType2:chiType(students[idx]),
+
+    const timeStr = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+    chiLog.unshift({
+      name:`${s.first} ${s.last}`,
+      chiType:chiTypeName(s),
+      amount,
+      type,
+      time:timeStr,
+      sessionDate:todayStr(),
+      chiType2:chiType(s),
       studentIdxs:[idx]
-    };
-    chiLog.unshift(entry);
-    // Register session + check type-based streak
+    });
+
     registerSession();
     const bonuses = checkTypeStreak(idx, type);
     if(bonuses.length) autoStreakQueue.push({idx, bonuses});
-    // Auto-check goal mastery
     autoCheckGoalMastery(idx, type, 'Chi Award');
-    // Write back to Sheets
-    if(SHEETS_ENABLED) saveChiToSheets(idx);
-  });
-  const names = [...selectedStudents].map(i=>students[i].first).join(', ');
+
+    if(SHEETS_ENABLED) {
+      await saveChiToSheets(idx);
+      await appendChiLogToSheets(idx, amount, type, type);
+    }
+  }
+
+  const names = selectedArr.map(i=>students[i].first).join(', ');
   showToast(`+${amount} Chi → ${names} (${AWARD_TYPES[type]?.label||type})`);
-  // Auto-unselect all students so teacher can immediately pick next
   selectedStudents.clear();
   renderTrackerGrid();
   updateAwardPanel();
@@ -3890,7 +3896,7 @@ function awardChi(type, amount){
   renderOverview();
   if(document.getElementById('leaderboard').classList.contains('visible')) renderLeaderboard();
   if(document.getElementById('roster').classList.contains('visible')) renderRoster();
-  // Apply auto-streaks after a brief delay so toasts don't collide
+
   if(autoStreakQueue.length){
     setTimeout(()=>{
       autoStreakQueue.forEach(({idx,bonuses})=>applyAutoStreaks(idx,bonuses));
@@ -3901,23 +3907,68 @@ function awardChi(type, amount){
   }
   autoSave();
 }
-function awardBulk(){
+
+async function awardBulk(){
   const grp = document.getElementById('bulkGroupSelect').value;
   const val = document.getElementById('bulkActionSelect').value;
-  const [amount, type] = [parseInt(val.split(':')[0]), val.split(':')[1]];
-  const groupStudents = students.filter(s=>s.bending_group===grp);
-  const now = new Date();
-  const timeStr = now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');
-  groupStudents.forEach(s=>{
-    s.chi += amount;
-    const idx = students.indexOf(s);
+  const [amount, type] = [parseInt(val.split(':')[0], 10), val.split(':')[1]];
+  const groupIdxs = students
+    .map((s, idx) => ({ s, idx }))
+    .filter(({ s }) => s.bending_group===grp)
+    .map(({ idx }) => idx);
+
+  if (!groupIdxs.length) {
+    showToast('No students in that group');
+    return;
+  }
+
+  const autoStreakQueue = [];
+
+  for (const idx of groupIdxs) {
+    const s = students[idx];
+    s.chi = Number(s.chi || 0) + Number(amount || 0);
     updateChiDisplay(idx);
-    chiLog.unshift({name:`${s.first} ${s.last}`,amount,type,time:timeStr,sessionDate:todayStr(),studentIdxs:[students.indexOf(s)],chiType2:chiType(s),chiType:chiTypeName(s)});
-    if(SHEETS_ENABLED) saveChiToSheets(idx);
-  });
-  showToast(`+${amount} Chi → ${grp} (${groupStudents.length} benders)`);
+
+    const timeStr = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+    chiLog.unshift({
+      name:`${s.first} ${s.last}`,
+      amount,
+      type,
+      time:timeStr,
+      sessionDate:todayStr(),
+      studentIdxs:[idx],
+      chiType2:chiType(s),
+      chiType:chiTypeName(s)
+    });
+
+    registerSession();
+    const bonuses = checkTypeStreak(idx, type);
+    if(bonuses.length) autoStreakQueue.push({idx, bonuses});
+    autoCheckGoalMastery(idx, type, 'Chi Award');
+
+    if(SHEETS_ENABLED) {
+      await saveChiToSheets(idx);
+      await appendChiLogToSheets(idx, amount, type, type);
+    }
+  }
+
+  showToast(`+${amount} Chi → ${grp} (${groupIdxs.length} benders)`);
   renderChiLog();
   renderOverview();
+  renderTrackerGrid();
+  updateAwardPanel();
+  if(document.getElementById('leaderboard').classList.contains('visible')) renderLeaderboard();
+  if(document.getElementById('roster').classList.contains('visible')) renderRoster();
+
+  if(autoStreakQueue.length){
+    setTimeout(()=>{
+      autoStreakQueue.forEach(({idx,bonuses})=>applyAutoStreaks(idx,bonuses));
+      renderChiLog();
+      renderOverview();
+      renderStreaks();
+    }, 800);
+  }
+  autoSave();
 }
 function quickAward(idx){
   selectedStudents.clear();
