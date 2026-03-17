@@ -2389,10 +2389,10 @@ async function saveChiToSheets(studentIdx) {
   const s = students[studentIdx];
   if (!s) return null;
   return await sheetsPost({
-    action:'updateChi',
-    student_key:`${s.last}_${s.first}`,
+    action: 'updateChi',
+    student_key: `${s.last}_${s.first}`,
     chi: s.chi,
-    chi_type: s.chi_type
+    chi_type: s.chi_type || ''
   });
 }
 
@@ -2406,19 +2406,62 @@ async function appendChiLogToSheets(studentIdx, amount, type, label='') {
     amount: amount,
     type: type || '',
     label: label || type || '',
-    time: new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }),
     session_date: todayStr()
   });
 }
 
-async function saveStreakToSheets(studentIdx) {
-  const s = students[studentIdx];
-  if (!s) return null;
-  return await sheetsPost({
-    action:'updateStreak',
-    student_key:`${s.last}_${s.first}`,
-    streaks_json: JSON.stringify(typeStreaks[studentIdx] || {})
+async function awardSingle(idx, type, amount) {
+  const s = students[idx];
+  if (!s) return;
+
+  s.chi = Number(s.chi || 0) + Number(amount || 0);
+
+  const timeStr = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+  chiLog.unshift({
+    name: `${s.first} ${s.last}`,
+    amount,
+    type,
+    time: timeStr,
+    sessionDate: todayStr(),
+    studentIdxs: [idx],
+    chiType2: chiType ? chiType(s) : '',
+    chiType: chiTypeName ? chiTypeName(s) : ''
   });
+
+  if (SHEETS_ENABLED) {
+    await saveChiToSheets(idx);
+    await appendChiLogToSheets(idx, amount, type, type);
+  }
+
+  renderChiLog && renderChiLog();
+  renderPrepRoster && renderPrepRoster();
+  renderOverview && renderOverview();
+  autoSave && autoSave();
+}
+
+async function prepQuickAward(idx, amount, type) {
+  await awardSingle(idx, type, amount);
+}
+
+async function prepBulkAward(type, amount) {
+  if (!prepSelected || !prepSelected.size) {
+    showToast && showToast('Check boxes next to students first');
+    return;
+  }
+
+  for (const idx of prepSelected) {
+    await awardSingle(idx, type, amount);
+  }
+
+  showToast && showToast(`+${amount} Chi → ${prepSelected.size} students`);
+}
+
+async function awardBulk(type, amount) {
+  if (!selectedStudents || !selectedStudents.size) return;
+
+  for (const idx of selectedStudents) {
+    await awardSingle(idx, type, amount);
+  }
 }
 
 async function saveScoresToSheets(assessmentName, rows) {
