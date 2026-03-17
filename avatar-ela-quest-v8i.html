@@ -2263,12 +2263,19 @@ async function sheetsGet(action) {
 async function sheetsPost(body) {
   if (!SHEETS_ENABLED) return null;
   try {
+    const form = new URLSearchParams();
+    form.append('payload', JSON.stringify(body));
+
     const r = await fetch(SHEETS_API_URL, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(body)
+      method: 'POST',
+      body: form
     });
+
     return await r.json();
-  } catch(e) { console.warn('Sheets POST failed:', e); return null; }
+  } catch (e) {
+    console.warn('Sheets POST failed:', e);
+    return null;
+  }
 }
 
 // ── Load from Sheets and overlay onto local data ─────────────────────────
