@@ -2380,7 +2380,21 @@ async function saveChiToSheets(studentIdx) {
   sheetsPost({action:'updateChi', student_key:`${s.last}_${s.first}`,
     chi: s.chi, chi_type: s.chi_type});
 }
+async function appendChiLogToSheets(studentIdx, amount, type, label='') {
+  const s = students[studentIdx];
+  if (!s) return;
 
+  return sheetsPost({
+    action: 'appendChiLog',
+    student_key: `${s.last}_${s.first}`,
+    name: `${s.first} ${s.last}`,
+    amount: amount,
+    type: type || '',
+    label: label || type || '',
+    time: new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }),
+    session_date: todayStr()
+  });
+}
 async function saveStreakToSheets(studentIdx) {
   const s = students[studentIdx];
   if (!s) return;
