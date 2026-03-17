@@ -2142,7 +2142,7 @@ const SEATING_CHART = {
 
 // ── Google Sheets Backend Config ────────────────────────────────────────
 // After deploying your Apps Script, paste your Web App URL here:
-const SHEETS_API_URL = 'https://script.google.com/a/macros/wearedream.org/s/AKfycbx6N_LOor64jrv30iwZeapeg306Z0L2tdvyEsxe17tzEr_RtJw5QNpO0PuMwDjQigco/exec';
+const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbx6N_LOor64jrv30iwZeapeg306Z0L2tdvyEsxe17tzEr_RtJw5QNpO0PuMwDjQigco/exec';
 const SHEETS_ENABLED = SHEETS_API_URL !== 'PASTE_YOUR_WEB_APP_URL_HERE';
 
 // ── Sheets API helpers ───────────────────────────────────────────────────
@@ -2177,21 +2177,26 @@ async function loadFromSheets() {
       return;
     }
 
-    // Overlay student data (goals, chi, streaks) from Sheets onto STUDENTS[]
-    if (data.students) {
+    // Overlay student data (goals, nation, bending_group) from Sheets onto students[]
+    if (data.students && data.students.length) {
       data.students.forEach(sheetStu => {
         const key = `${sheetStu.last}_${sheetStu.first}`;
-        const local = STUDENTS.find(s => `${s.last}_${s.first}` === key);
+        const local = students.find(s => `${s.last}_${s.first}` === key);
         if (local) {
-          if (sheetStu.skills_goal) local.skills_goal = sheetStu.skills_goal;
-          if (sheetStu.habit_goal)  local.habit_goal  = sheetStu.habit_goal;
+          if (sheetStu.skills_goal)           local.skills_goal           = sheetStu.skills_goal;
+          if (sheetStu.habit_goal)            local.habit_goal            = sheetStu.habit_goal;
+          if (sheetStu.nation)                local.nation                = sheetStu.nation;
+          if (sheetStu.bending_group)         local.bending_group         = sheetStu.bending_group;
+          if (sheetStu.priority_standard)     local.priority_standard     = sheetStu.priority_standard;
+          if (sheetStu.priority_standard_label) local.priority_standard_label = sheetStu.priority_standard_label;
+          if (sheetStu.chi_type)              local.chi_type              = sheetStu.chi_type;
         }
       });
     }
 
     // Overlay scores
     if (data.scores) {
-      STUDENTS.forEach(s => {
+      students.forEach(s => {
         const key = `${s.last}_${s.first}`;
         const scoreMap = data.scores[key];
         if (scoreMap) {
@@ -2205,7 +2210,7 @@ async function loadFromSheets() {
 
     // Overlay chi & streaks
     if (data.chi) {
-      STUDENTS.forEach(s => {
+      students.forEach(s => {
         const key = `${s.last}_${s.first}`;
         const chiData = data.chi[key];
         if (chiData) {
@@ -2213,7 +2218,7 @@ async function loadFromSheets() {
           if (chiData.chi_type) s.chi_type = chiData.chi_type;
           if (chiData.streaks_json) {
             try {
-              const si = STUDENTS.indexOf(s);
+              const si = students.indexOf(s);
               typeStreaks[si] = JSON.parse(chiData.streaks_json);
             } catch(e) {}
           }
@@ -2235,14 +2240,14 @@ async function loadFromSheets() {
 
 // ── Write-back helpers (called automatically on chi/streak/ILM changes) ──
 async function saveChiToSheets(studentIdx) {
-  const s = STUDENTS[studentIdx];
+  const s = students[studentIdx];
   if (!s) return;
   sheetsPost({action:'updateChi', student_key:`${s.last}_${s.first}`,
     chi: s.chi, chi_type: s.chi_type});
 }
 
 async function saveStreakToSheets(studentIdx) {
-  const s = STUDENTS[studentIdx];
+  const s = students[studentIdx];
   if (!s) return;
   sheetsPost({action:'updateStreak', student_key:`${s.last}_${s.first}`,
     streaks_json: JSON.stringify(typeStreaks[studentIdx] || {})});
@@ -2255,7 +2260,7 @@ async function saveScoresToSheets(assessmentName, rows) {
 }
 
 async function saveGoalToSheets(studentIdx) {
-  const s = STUDENTS[studentIdx];
+  const s = students[studentIdx];
   if (!s) return;
   sheetsPost({action:'updateGoals', student_key:`${s.last}_${s.first}`,
     skills_goal: s.skills_goal, habit_goal: s.habit_goal});
