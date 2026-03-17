@@ -6174,13 +6174,28 @@ function renderPrepRoster(search=''){
   }).join('');
 }
 
-function prepQuickAward(idx, amount, type){
+async function prepQuickAward(idx, amount, type){
   students[idx].chi += amount;
   updateChiDisplay(idx);
+
   const s = students[idx];
-  const timeStr = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-  chiLog.unshift({name:`${s.first} ${s.last}`,amount,type,time:timeStr,sessionDate:todayStr(),studentIdxs:[students.indexOf(s)],chiType2:chiType(s),chiType:chiTypeName(s)});
-  if(SHEETS_ENABLED) saveChiToSheets(idx);
+  const timeStr = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  chiLog.unshift({
+    name:`${s.first} ${s.last}`,
+    amount,
+    type,
+    time:timeStr,
+    sessionDate:todayStr(),
+    studentIdxs:[students.indexOf(s)],
+    chiType2:chiType(s),
+    chiType:chiTypeName(s)
+  });
+
+  if (SHEETS_ENABLED) {
+    await saveChiToSheets(idx);
+    await appendChiLogToSheets(idx, amount, type, type);
+  }
+
   renderChiLog();
   renderPrepRoster();
   showToast(`+${amount} Chi → ${s.first} ${s.last}`);
