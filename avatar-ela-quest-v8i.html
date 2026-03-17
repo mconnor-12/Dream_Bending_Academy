@@ -5346,12 +5346,22 @@ function chiToNextLevel(chi){
   }
   return '';
 }
-function awardSingle(idx, type, amount){
+async function awardSingle(idx, type, amount){
   selectedStudents.clear();
   selectedStudents.add(idx);
   awardChi(type, amount);
-  if(SHEETS_ENABLED) saveChiToSheets(idx);
-  // Update modal chi display
+
+  async function saveChiToSheets(studentIdx) {
+  const s = students[studentIdx];
+  if (!s) return null;
+  return await sheetsPost({
+    action:'updateChi',
+    student_key:`${s.last}_${s.first}`,
+    chi: s.chi,
+    chi_type: s.chi_type
+  });
+}
+
   const s = students[idx];
   const lvl = getLevel(s.chi);
   document.querySelector('.mcd-amount').textContent = s.chi;
@@ -6202,16 +6212,35 @@ async function prepQuickAward(idx, amount, type){
   autoSave();
 }
 
-function prepBulkAward(type, amount){
-  if(!prepSelected.size){ showToast('Check boxes next to students first'); return; }
-  prepSelected.forEach(idx=>{
+async function prepBulkAward(type, amount){
+  if(!prepSelected.size){
+    showToast('Check boxes next to students first');
+    return;
+  }
+
+  for (const idx of prepSelected) {
     students[idx].chi += amount;
     updateChiDisplay(idx);
+
     const s = students[idx];
-    const timeStr = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-    chiLog.unshift({name:`${s.first} ${s.last}`,amount,type,time:timeStr,sessionDate:todayStr(),studentIdxs:[students.indexOf(s)],chiType2:chiType(s),chiType:chiTypeName(s)});
-  });
-  if(SHEETS_ENABLED) prepSelected.forEach(idx=>saveChiToSheets(idx));
+    const timeStr = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    chiLog.unshift({
+      name:`${s.first} ${s.last}`,
+      amount,
+      type,
+      time:timeStr,
+      sessionDate:todayStr(),
+      studentIdxs:[students.indexOf(s)],
+      chiType2:chiType(s),
+      chiType:chiTypeName(s)
+    });
+
+    if (SHEETS_ENABLED) {
+      await saveChiToSheets(idx);
+      await appendChiLogToSheets(idx, amount, type, type);
+    }
+  }
+
   renderChiLog();
   renderPrepRoster();
   showToast(`+${amount} Chi → ${prepSelected.size} students`);
