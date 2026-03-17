@@ -981,6 +981,8 @@ main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14p
   <button class="tab" onclick="showTab('notecatcher')">📓 Note Catcher</button>
   <button class="tab" onclick="showTab('exportcsv')">⬇ Export CSV</button>
   <button class="tab" onclick="showTab('placards')">🏮 Goal Placards</button>
+  <button class="tab" onclick="showTab('sheetsync')">🔄 Sheet Sync</button>
+  <button class="tab" onclick="showTab('etexport')">📋 ET Export</button>
 </nav>
 
 <main>
@@ -2097,6 +2099,110 @@ main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14p
   <button onclick="downloadCSV()" style="padding:10px 28px;background:linear-gradient(135deg,rgba(212,168,67,.3),rgba(212,168,67,.15));border:1px solid rgba(212,168,67,.5);color:var(--gold);font-family:'Cinzel',serif;font-size:13px;letter-spacing:.08em;border-radius:8px;cursor:pointer;font-weight:700;">⬇ Download CSV</button>
 </section>
 
+<!-- ═══════════════════════════════════════════ SHEET SYNC TAB -->
+<section class="section" id="sheetsync">
+  <div class="sec-head">
+    <h2 class="gold">🔄 Sheet Sync</h2>
+    <p>Pull updates from your Google Sheet into the dashboard. Use this if you've edited data directly in the Sheet.</p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+
+    <!-- Students / Goals -->
+    <div style="background:rgba(34,28,20,.85);border:1px solid rgba(77,184,232,.25);border-radius:12px;padding:18px 20px;">
+      <div style="font-family:'Cinzel',serif;font-size:12px;color:var(--water-l);letter-spacing:.1em;margin-bottom:6px;">🌊 STUDENTS TAB</div>
+      <p style="font-size:12px;opacity:.6;margin-bottom:12px;line-height:1.5;">Pull updated goals, nations, bending groups, and priority standards from the Students sheet.</p>
+      <button onclick="syncSheetTab('students')" class="sync-btn" style="background:rgba(77,184,232,.15);border:1px solid rgba(77,184,232,.4);color:var(--water-l);">⬇ Pull Student Data</button>
+      <div id="sync-students-status" style="font-size:11px;margin-top:8px;opacity:.6;"></div>
+    </div>
+
+    <!-- Scores -->
+    <div style="background:rgba(34,28,20,.85);border:1px solid rgba(212,168,67,.2);border-radius:12px;padding:18px 20px;">
+      <div style="font-family:'Cinzel',serif;font-size:12px;color:var(--gold);letter-spacing:.1em;margin-bottom:6px;">📊 SCORES TAB</div>
+      <p style="font-size:12px;opacity:.6;margin-bottom:12px;line-height:1.5;">Pull IA1, IA2, W25, and any manually entered scores from the Scores sheet.</p>
+      <button onclick="syncSheetTab('scores')" class="sync-btn" style="background:rgba(212,168,67,.12);border:1px solid rgba(212,168,67,.4);color:var(--gold);">⬇ Pull Scores</button>
+      <div id="sync-scores-status" style="font-size:11px;margin-top:8px;opacity:.6;"></div>
+    </div>
+
+    <!-- Chi -->
+    <div style="background:rgba(34,28,20,.85);border:1px solid rgba(240,112,48,.25);border-radius:12px;padding:18px 20px;">
+      <div style="font-family:'Cinzel',serif;font-size:12px;color:var(--ember);letter-spacing:.1em;margin-bottom:6px;">⚡ CHI_STREAKS TAB</div>
+      <p style="font-size:12px;opacity:.6;margin-bottom:12px;line-height:1.5;">Pull Chi totals and streak data. Use this if you manually adjusted Chi in the Sheet.</p>
+      <button onclick="syncSheetTab('chi')" class="sync-btn" style="background:rgba(240,112,48,.12);border:1px solid rgba(240,112,48,.4);color:var(--ember);">⬇ Pull Chi & Streaks</button>
+      <div id="sync-chi-status" style="font-size:11px;margin-top:8px;opacity:.6;"></div>
+    </div>
+
+    <!-- Extended -->
+    <div style="background:rgba(34,28,20,.85);border:1px solid rgba(124,189,82,.25);border-radius:12px;padding:18px 20px;">
+      <div style="font-family:'Cinzel',serif;font-size:12px;color:var(--earth-l);letter-spacing:.1em;margin-bottom:6px;">🗂 EXTENDED_DATA TAB</div>
+      <p style="font-size:12px;opacity:.6;margin-bottom:12px;line-height:1.5;">Pull exit ticket sessions, quest progress, and streak history from the Extended_Data sheet.</p>
+      <button onclick="syncSheetTab('extended')" class="sync-btn" style="background:rgba(124,189,82,.12);border:1px solid rgba(124,189,82,.4);color:var(--earth-l);">⬇ Pull ET / Quests / Streaks</button>
+      <div id="sync-extended-status" style="font-size:11px;margin-top:8px;opacity:.6;"></div>
+    </div>
+
+  </div>
+
+  <!-- Pull All -->
+  <div style="text-align:center;margin-bottom:28px;">
+    <button onclick="syncSheetTab('all')" style="padding:12px 36px;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.1em;border-radius:10px;background:linear-gradient(135deg,rgba(212,168,67,.25),rgba(212,168,67,.1));border:1.5px solid var(--gold);color:var(--gold-l);cursor:pointer;transition:all .2s;">
+      ⚡ Pull ALL Tabs Now
+    </button>
+    <div id="sync-all-status" style="font-size:12px;margin-top:10px;opacity:.7;"></div>
+  </div>
+
+  <!-- Manual edit instructions -->
+  <div style="background:rgba(34,28,20,.7);border:1px solid rgba(212,168,67,.12);border-radius:10px;padding:16px 20px;">
+    <div style="font-family:'Cinzel',serif;font-size:11px;color:var(--gold);letter-spacing:.1em;margin-bottom:10px;">📝 HOW TO EDIT DATA IN THE SHEET</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;line-height:1.6;opacity:.75;">
+      <div><b style="color:var(--water-l);">Students tab</b> — Edit goals, priority standard, or bending group directly in the sheet. Then click "Pull Student Data" above.</div>
+      <div><b style="color:var(--gold);">Scores tab</b> — Add or edit any assessment score (IA1, IA2, W25, quiz names). Then click "Pull Scores".</div>
+      <div><b style="color:var(--ember);">Chi_Streaks tab</b> — Edit the chi column to manually adjust a student's Chi total. Then click "Pull Chi & Streaks".</div>
+      <div><b style="color:var(--earth-l);">Extended_Data tab</b> — This is a JSON blob — best not to edit directly. Use the dashboard instead.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════ ET EXPORT TAB -->
+<section class="section" id="etexport">
+  <div class="sec-head">
+    <h2 class="gold">📋 Exit Ticket Export</h2>
+    <p>View, filter, and export all exit ticket session data. Download as CSV for your records or upload to any gradebook.</p>
+  </div>
+
+  <!-- Summary stats -->
+  <div id="etExportStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px;"></div>
+
+  <!-- Filters -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+    <input class="r-search" type="text" placeholder="Search student name…" oninput="renderETExport()" id="etExportSearch" style="flex:1;max-width:260px;">
+    <button class="r-filter active" onclick="setETExportFilter('all',this)">All Nations</button>
+    <button class="r-filter" onclick="setETExportFilter('Water',this)">🌊 Water</button>
+    <button class="r-filter" onclick="setETExportFilter('Fire',this)">🔥 Fire</button>
+    <button class="r-filter" onclick="setETExportFilter('Earth',this)">🪨 Earth</button>
+    <select class="sheet-select" id="etExportStdFilter" onchange="renderETExport()" style="font-size:12px;">
+      <option value="all">All Standards</option>
+    </select>
+    <button onclick="downloadETCSV()" style="margin-left:auto;padding:8px 20px;border-radius:8px;background:linear-gradient(135deg,rgba(212,168,67,.25),rgba(212,168,67,.1));border:1.5px solid var(--gold);color:var(--gold-l);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em;cursor:pointer;font-weight:700;">⬇ Download CSV</button>
+  </div>
+
+  <!-- Session summary cards -->
+  <div id="etExportSessions" style="margin-bottom:20px;"></div>
+
+  <!-- Full roster table -->
+  <div style="overflow-x:auto;">
+    <table class="roster-table" id="etExportTable" style="min-width:700px;">
+      <thead id="etExportHead"></thead>
+      <tbody id="etExportBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<style>
+.sync-btn{padding:8px 18px;border-radius:8px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em;font-weight:700;transition:all .2s;}
+.sync-btn:hover{filter:brightness(1.3);}
+</style>
+
+
 </main>
 
 <!-- STUDENT MODAL -->
@@ -2226,11 +2332,33 @@ async function loadFromSheets() {
       });
     }
 
+    // Load extended data (ET sessions, quests, streaks)
+    const ext = await sheetsGet('getExtended');
+    if(ext && !ext.error){
+      if(Array.isArray(ext.etSessionHistory) && ext.etSessionHistory.length > etSessionHistory.length){
+        etSessionHistory.length = 0;
+        etSessionHistory.push(...ext.etSessionHistory);
+      }
+      if(ext.questProgress && Object.keys(ext.questProgress).length > 0){
+        Object.assign(questProgress, ext.questProgress);
+      }
+      if(ext.typeStreaks && Object.keys(ext.typeStreaks).length > 0){
+        Object.assign(typeStreaks, ext.typeStreaks);
+      }
+      if(Array.isArray(ext.classSessions) && ext.classSessions.length > classSessions.length){
+        classSessions.length = 0;
+        classSessions.push(...ext.classSessions);
+      }
+      if(ext.comboState) Object.assign(comboState, ext.comboState);
+    }
+
     if (statusEl) statusEl.textContent = `✓ Synced ${new Date().toLocaleTimeString()}`;
     console.log('Loaded from Sheets:', {
       students: data.students?.length,
       scoreKeys: Object.keys(data.scores||{}).length,
-      chiKeys: Object.keys(data.chi||{}).length
+      chiKeys: Object.keys(data.chi||{}).length,
+      etSessions: etSessionHistory.length,
+      quests: Object.keys(questProgress).length
     });
   } catch(e) {
     if (statusEl) statusEl.textContent = '⚠ Sync error — using built-in data';
@@ -2605,6 +2733,7 @@ function applyAutoStreaks(studentIdx, bonuses){
   bonuses.forEach((b,bi)=>{
     students[studentIdx].chi += b.amount;
     updateChiDisplay(studentIdx);
+    if(SHEETS_ENABLED) saveChiToSheets(studentIdx);
     chiLog.unshift({
       name:`${s.first} ${s.last}`,
       chiType: chiTypeName(s),
@@ -2849,6 +2978,7 @@ function submitETSession(){
   renderETSessionLog();
   renderChiLog();
   renderOverview();
+  if(SHEETS_ENABLED) saveExtendedToSheets();
 
   if(autoStreakQueue.length){
     setTimeout(()=>{
@@ -2962,6 +3092,8 @@ function showTab(id){
   if(id==='questrace') renderQuestRace();
   if(id==='exportcsv') initExportTab();
   if(id==='placards'){ renderSlotPicker(); renderPlacards(); }
+  if(id==='sheetsync'){ /* no init needed */ }
+  if(id==='etexport'){ initETExportTab(); }
 }
 
 // ════════════════════════════════════════════════
@@ -3654,6 +3786,8 @@ function awardChi(type, amount){
     if(bonuses.length) autoStreakQueue.push({idx, bonuses});
     // Auto-check goal mastery
     autoCheckGoalMastery(idx, type, 'Chi Award');
+    // Write back to Sheets
+    if(SHEETS_ENABLED) saveChiToSheets(idx);
   });
   const names = [...selectedStudents].map(i=>students[i].first).join(', ');
   showToast(`+${amount} Chi → ${names} (${AWARD_TYPES[type]?.label||type})`);
@@ -3674,6 +3808,7 @@ function awardChi(type, amount){
       renderStreaks();
     }, 800);
   }
+  autoSave();
 }
 function awardBulk(){
   const grp = document.getElementById('bulkGroupSelect').value;
@@ -3687,6 +3822,7 @@ function awardBulk(){
     const idx = students.indexOf(s);
     updateChiDisplay(idx);
     chiLog.unshift({name:`${s.first} ${s.last}`,amount,type,time:timeStr,sessionDate:todayStr(),studentIdxs:[students.indexOf(s)],chiType2:chiType(s),chiType:chiTypeName(s)});
+    if(SHEETS_ENABLED) saveChiToSheets(idx);
   });
   showToast(`+${amount} Chi → ${grp} (${groupStudents.length} benders)`);
   renderChiLog();
@@ -4275,7 +4411,8 @@ function bulkGoalStatus(type, status){
   });
   const label = status==='mastered'?'🟢 Mastered':status==='approaching'?'🟡 Approaching':'⬜ In Progress';
   showToast(`${label} → ${names.slice(0,4).join(', ')}${names.length>4?' +more':''}`);
-  set.clear(); // auto-deselect after bulk action
+  if(SHEETS_ENABLED){ set.forEach(si=>saveGoalToSheets(si)); }
+  set.clear();
   renderRosterGoal();
   updateGoalBulkBar();
 }
@@ -4408,7 +4545,7 @@ function cycleGoalStatus(si, type) {
       showToast(`⬜ ${students[si].first} → Habit In Progress`);
     }
   }
-  saveState();
+  if(SHEETS_ENABLED) saveGoalToSheets(si);
   renderGoalHub();
 }
 
@@ -4547,7 +4684,8 @@ function openGoalModal(si){
 function gmMarkMastered(type, source){
   if(goalModalSI===null) return;
   markGoalMastered(goalModalSI, type, source);
-  openGoalModal(goalModalSI); // re-render modal
+  if(SHEETS_ENABLED) saveGoalToSheets(goalModalSI);
+  openGoalModal(goalModalSI);
 }
 
 function gmUnmark(type){
@@ -4567,6 +4705,7 @@ function saveGoalModal(){
   gs.skills_override = document.getElementById('gmSkillGoal').value.trim();
   gs.habit_override  = document.getElementById('gmHabitGoal').value.trim();
   gs.needs_new_goal = false;
+  if(SHEETS_ENABLED) saveGoalToSheets(goalModalSI);
   closeGoalModal();
   renderGoalHub();
   if(rosterView==='goal') renderRosterGoal();
@@ -4904,6 +5043,7 @@ function toggleQTStep(si, stepIdx){
   if(qp.confirmed) return; // locked after confirm
   qp.steps[stepIdx] = !qp.steps[stepIdx];
   renderQuestTracker();
+  if(SHEETS_ENABLED) saveExtendedToSheets();
   // keep Quests Roster in sync if visible
   if(questsView === 'roster' && document.getElementById('questsRosterView')?.style.display !== 'none'){
     renderQuestsRoster();
@@ -4930,6 +5070,7 @@ function confirmQTComplete(si){
   qp.confirmed = true;
   qp.date = todayStr();
   awardChi([si], 'goal_met', chiAmt, `Quest Complete: ${qp.quest}`);
+  if(SHEETS_ENABLED){ saveChiToSheets(si); saveExtendedToSheets(); }
   showToast(`🏆 Quest Complete! ${students[si].first} earned +${chiAmt} Chi`);
   renderQuestTracker();
 }
@@ -5188,6 +5329,7 @@ function awardSingle(idx, type, amount){
   selectedStudents.clear();
   selectedStudents.add(idx);
   awardChi(type, amount);
+  if(SHEETS_ENABLED) saveChiToSheets(idx);
   // Update modal chi display
   const s = students[idx];
   const lvl = getLevel(s.chi);
@@ -5406,7 +5548,7 @@ function renderStreaks(){
 }
 
 function awardStreakBonus(type, amount){
-  const sel = students.filter((_,i)=>trackerSelected.has(i));
+  const sel = students.filter((_,i)=>selectedStudents.has(i));
   if(!sel.length){ showToast('Select students in Chi Tracker first'); return; }
   sel.forEach(s=>{
     const idx = students.indexOf(s);
@@ -5416,8 +5558,10 @@ function awardStreakBonus(type, amount){
   const names = sel.map(s=>s.first).join(', ');
   const timeStr = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
   chiLog.unshift({name:names,amount,type,time:timeStr,chiType2:chiType(sel[0]),chiType:chiTypeName(sel[0])});
+  if(SHEETS_ENABLED) sel.forEach(s=>saveChiToSheets(students.indexOf(s)));
   renderChiLog();
   showToast(`+${amount} Streak Chi → ${names}`);
+  autoSave();
 }
 
 // ════════════════════════════════════════════════
@@ -6015,9 +6159,11 @@ function prepQuickAward(idx, amount, type){
   const s = students[idx];
   const timeStr = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
   chiLog.unshift({name:`${s.first} ${s.last}`,amount,type,time:timeStr,sessionDate:todayStr(),studentIdxs:[students.indexOf(s)],chiType2:chiType(s),chiType:chiTypeName(s)});
+  if(SHEETS_ENABLED) saveChiToSheets(idx);
   renderChiLog();
   renderPrepRoster();
   showToast(`+${amount} Chi → ${s.first} ${s.last}`);
+  autoSave();
 }
 
 function prepBulkAward(type, amount){
@@ -6029,9 +6175,11 @@ function prepBulkAward(type, amount){
     const timeStr = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     chiLog.unshift({name:`${s.first} ${s.last}`,amount,type,time:timeStr,sessionDate:todayStr(),studentIdxs:[students.indexOf(s)],chiType2:chiType(s),chiType:chiTypeName(s)});
   });
+  if(SHEETS_ENABLED) prepSelected.forEach(idx=>saveChiToSheets(idx));
   renderChiLog();
   renderPrepRoster();
   showToast(`+${amount} Chi → ${prepSelected.size} students`);
+  autoSave();
 }
 
 // ════════════════════════════════════════════════
@@ -6073,6 +6221,22 @@ function saveSession(){
   } catch(e){
     showSaveIndicator('⚠ Save failed — storage may be full', true);
   }
+  // Also persist extended data to Sheets
+  if(SHEETS_ENABLED) saveExtendedToSheets();
+}
+
+async function saveExtendedToSheets(){
+  try {
+    await sheetsPost({
+      action: 'saveExtended',
+      etSessionHistory: etSessionHistory,
+      questProgress: questProgress,
+      typeStreaks: typeStreaks,
+      classSessions: classSessions,
+      comboState: comboState,
+      savedAt: new Date().toISOString()
+    });
+  } catch(e){ console.warn('saveExtendedToSheets error:', e); }
 }
 
 function loadSession(){
@@ -8572,6 +8736,267 @@ function printPlacards(){
   win.document.close();
 }
 
+
+// ════════════════════════════════════════════════════════════════
+//  SHEET SYNC TAB
+// ════════════════════════════════════════════════════════════════
+async function syncSheetTab(tab){
+  const statusId = tab === 'all' ? 'sync-all-status' : `sync-${tab}-status`;
+  const el = document.getElementById(statusId);
+  if(el) el.textContent = '⟳ Pulling from Sheet…';
+
+  try {
+    if(tab === 'all' || tab === 'students'){
+      const data = await sheetsGet('getStudents');
+      if(data && !data.error && data.length){
+        data.forEach(sheetStu => {
+          const key = `${sheetStu.last}_${sheetStu.first}`;
+          const local = students.find(s => `${s.last}_${s.first}` === key);
+          if(local){
+            if(sheetStu.skills_goal)             local.skills_goal             = sheetStu.skills_goal;
+            if(sheetStu.habit_goal)              local.habit_goal              = sheetStu.habit_goal;
+            if(sheetStu.nation)                  local.nation                  = sheetStu.nation;
+            if(sheetStu.bending_group)           local.bending_group           = sheetStu.bending_group;
+            if(sheetStu.priority_standard)       local.priority_standard       = sheetStu.priority_standard;
+            if(sheetStu.priority_standard_label) local.priority_standard_label = sheetStu.priority_standard_label;
+          }
+        });
+        if(tab === 'students'){
+          el.textContent = `✓ Pulled ${data.length} students — ${new Date().toLocaleTimeString()}`;
+          renderOverview(); renderNation('Water'); renderNation('Fire'); renderNation('Earth');
+        }
+      }
+    }
+
+    if(tab === 'all' || tab === 'scores'){
+      const data = await sheetsGet('getScores');
+      if(data && !data.error){
+        students.forEach(s => {
+          const key = `${s.last}_${s.first}`;
+          const scoreMap = data[key];
+          if(scoreMap){
+            if(!s.scores) s.scores = {};
+            Object.entries(scoreMap).forEach(([asmt, vals]) => {
+              s.scores[asmt] = {pct: vals.pct, mc: vals.mc, crq: vals.crq};
+            });
+          }
+        });
+        if(tab === 'scores'){
+          el.textContent = `✓ Pulled scores for ${Object.keys(data).length} students — ${new Date().toLocaleTimeString()}`;
+          if(document.getElementById('roster').classList.contains('visible')) renderRoster();
+        }
+      }
+    }
+
+    if(tab === 'all' || tab === 'chi'){
+      const data = await sheetsGet('getChi');
+      if(data && !data.error){
+        students.forEach(s => {
+          const key = `${s.last}_${s.first}`;
+          const chiData = data[key];
+          if(chiData){
+            if(chiData.chi != null) s.chi = Number(chiData.chi) || 0;
+            if(chiData.chi_type) s.chi_type = chiData.chi_type;
+            if(chiData.streaks_json){
+              try {
+                const si = students.indexOf(s);
+                typeStreaks[si] = JSON.parse(chiData.streaks_json);
+              } catch(e){}
+            }
+          }
+        });
+        if(tab === 'chi'){
+          el.textContent = `✓ Pulled Chi for ${Object.keys(data).length} students — ${new Date().toLocaleTimeString()}`;
+          renderOverview(); renderStreaks();
+        }
+      }
+    }
+
+    if(tab === 'all' || tab === 'extended'){
+      const ext = await sheetsGet('getExtended');
+      if(ext && !ext.error){
+        if(Array.isArray(ext.etSessionHistory) && ext.etSessionHistory.length > 0){
+          etSessionHistory.length = 0;
+          etSessionHistory.push(...ext.etSessionHistory);
+        }
+        if(ext.questProgress && Object.keys(ext.questProgress).length > 0){
+          Object.assign(questProgress, ext.questProgress);
+        }
+        if(ext.typeStreaks && Object.keys(ext.typeStreaks).length > 0){
+          Object.assign(typeStreaks, ext.typeStreaks);
+        }
+        if(Array.isArray(ext.classSessions) && ext.classSessions.length > 0){
+          classSessions.length = 0;
+          classSessions.push(...ext.classSessions);
+        }
+        if(tab === 'extended'){
+          el.textContent = `✓ Pulled — ${etSessionHistory.length} ET sessions, ${Object.keys(questProgress).length} quest records — ${new Date().toLocaleTimeString()}`;
+          renderQuestTracker(); renderStreaks(); renderETSessionLog();
+        }
+      }
+    }
+
+    if(tab === 'all'){
+      const allEl = document.getElementById('sync-all-status');
+      if(allEl) allEl.textContent = `✓ All tabs synced — ${new Date().toLocaleTimeString()}`;
+      renderOverview(); renderNation('Water'); renderNation('Fire'); renderNation('Earth');
+      renderStreaks(); renderQuestTracker(); renderChiLog();
+      autoSave();
+    }
+
+  } catch(err){
+    if(el) el.textContent = `⚠ Error: ${err.message}`;
+    console.warn('syncSheetTab error:', err);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  ET EXPORT TAB
+// ════════════════════════════════════════════════════════════════
+let etExportNation = 'all';
+
+function setETExportFilter(n, el){
+  etExportNation = n;
+  document.querySelectorAll('#etexport .r-filter').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  renderETExport();
+}
+
+function initETExportTab(){
+  // Populate standard filter
+  const sel = document.getElementById('etExportStdFilter');
+  if(sel && etSessionHistory.length){
+    const stds = [...new Set(etSessionHistory.map(s=>s.standard))].sort();
+    sel.innerHTML = '<option value="all">All Standards</option>' +
+      stds.map(s=>`<option value="${s}">${s}</option>`).join('');
+  }
+  renderETExport();
+}
+
+function renderETExport(){
+  if(!etSessionHistory.length){
+    document.getElementById('etExportBody').innerHTML = '<tr><td colspan="20" style="text-align:center;padding:32px;opacity:.35;font-style:italic;">No exit ticket sessions logged yet. Submit sessions in the Exit Tickets tab first.</td></tr>';
+    document.getElementById('etExportHead').innerHTML = '';
+    document.getElementById('etExportStats').innerHTML = '';
+    document.getElementById('etExportSessions').innerHTML = '';
+    return;
+  }
+
+  const search = (document.getElementById('etExportSearch')?.value||'').toLowerCase();
+  const stdFilter = document.getElementById('etExportStdFilter')?.value || 'all';
+  const sessions = etSessionHistory.slice().reverse(); // oldest → newest left→right
+
+  // Filter sessions by standard
+  const visibleSessions = stdFilter === 'all' ? sessions : sessions.filter(s=>s.standard===stdFilter);
+
+  // Stats
+  const totalSessions = visibleSessions.length;
+  const allResults = visibleSessions.flatMap(s=>s.results||[]);
+  const profCount = allResults.filter(r=>r.level==='proficient').length;
+  const apprCount = allResults.filter(r=>r.level==='approaching').length;
+  const emrgCount = allResults.filter(r=>r.level==='emerging').length;
+  const profRate  = allResults.length ? Math.round(profCount/allResults.length*100) : 0;
+
+  document.getElementById('etExportStats').innerHTML = [
+    {label:'Sessions Logged', val:totalSessions, col:'var(--gold)'},
+    {label:'Total Marks', val:allResults.length, col:'var(--gold)'},
+    {label:'Proficient', val:profCount, col:'#52c788'},
+    {label:'Approaching', val:apprCount, col:'var(--gold)'},
+    {label:'Emerging', val:emrgCount, col:'#e07070'},
+    {label:'Prof Rate', val:profRate+'%', col:profRate>=75?'#52c788':profRate>=50?'var(--gold)':'#e07070'},
+  ].map(s=>`<div class="stat-card"><div class="stat-num" style="color:${s.col}">${s.val}</div><div class="stat-lbl">${s.label}</div></div>`).join('');
+
+  // Session summary pills
+  document.getElementById('etExportSessions').innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">' +
+    visibleSessions.map(sess=>{
+      const p = (sess.results||[]).filter(r=>r.level==='proficient').length;
+      const t = (sess.results||[]).length;
+      const pct = t ? Math.round(p/t*100) : 0;
+      const col = pct>=75?'#52c788':pct>=50?'var(--gold)':'#e07070';
+      return `<div style="background:rgba(34,28,20,.8);border:1px solid rgba(212,168,67,.15);border-radius:8px;padding:6px 12px;font-size:11px;">
+        <div style="font-family:'Cinzel',serif;font-size:10px;color:var(--gold);margin-bottom:2px;">${sess.standard}</div>
+        <div style="opacity:.5;font-size:9px;">${sess.date} ${sess.timeStr||''}</div>
+        <div style="color:${col};font-weight:700;font-size:12px;">${pct}% prof · ${t} students</div>
+      </div>`;
+    }).join('') + '</div>';
+
+  // Filter students
+  let data = students.filter(s=>{
+    if(etExportNation !== 'all' && s.nation !== etExportNation) return false;
+    if(search && !(s.first+' '+s.last).toLowerCase().includes(search)) return false;
+    return true;
+  }).sort((a,b)=>(a.last+a.first).localeCompare(b.last+b.first));
+
+  const LEVEL_ICONS = {proficient:'✅', approaching:'⚡', emerging:'🌱', absent:'—'};
+  const LEVEL_STYLES = {
+    proficient: 'background:rgba(82,199,136,.2);color:#52c788;',
+    approaching:'background:rgba(212,168,67,.2);color:var(--gold);',
+    emerging:   'background:rgba(224,112,112,.2);color:#e07070;',
+    absent:     'opacity:.2;'
+  };
+
+  // Header
+  const thStyle = 'padding:6px 8px;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);border-bottom:1px solid rgba(212,168,67,.2);white-space:nowrap;text-align:center;';
+  document.getElementById('etExportHead').innerHTML = `<tr>
+    <th style="${thStyle};text-align:left;">Name</th>
+    <th style="${thStyle}">Nation</th>
+    <th style="${thStyle}">Group</th>
+    <th style="${thStyle}">ET Rate</th>
+    ${visibleSessions.map(s=>`<th style="${thStyle}" title="${s.standard} — ${s.date}">${s.standard}<br><span style="font-size:8px;opacity:.5;">${s.date}</span></th>`).join('')}
+  </tr>`;
+
+  // Rows
+  document.getElementById('etExportBody').innerHTML = data.map(s=>{
+    const si = students.indexOf(s);
+    const nCol = s.nation==='Water'?'var(--water-l)':s.nation==='Fire'?'var(--fire-l)':'var(--earth-l)';
+    let appeared=0, proficient=0;
+    const cells = visibleSessions.map(sess=>{
+      const r = (sess.results||[]).find(r=>r.si===si);
+      if(r) appeared++;
+      if(r?.level==='proficient') proficient++;
+      const level = r?.level||'absent';
+      return `<td style="text-align:center;padding:4px;"><span style="display:inline-block;padding:2px 5px;border-radius:4px;font-size:11px;${LEVEL_STYLES[level]||LEVEL_STYLES.absent}">${LEVEL_ICONS[level]}</span></td>`;
+    }).join('');
+    const pct = appeared ? Math.round(proficient/appeared*100) : null;
+    const rateCol = pct===null?'rgba(255,255,255,.25)':pct>=75?'#52c788':pct>=50?'var(--gold)':'#e07070';
+    const rateStr = pct===null ? '—' : `<span style="font-weight:700;color:${rateCol}">${pct}%</span><span style="opacity:.4;font-size:9px;"> ${proficient}/${appeared}</span>`;
+    return `<tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+      <td style="padding:6px 8px;font-weight:600;white-space:nowrap;">${s.first} ${s.last}${s.iep?' <span class="flag flag-iep">IEP</span>':''}${s.ell?' <span class="flag flag-ell">ELL</span>':''}</td>
+      <td style="padding:6px 8px;color:${nCol};font-size:12px;text-align:center;">${{Water:'🌊',Fire:'🔥',Earth:'🪨'}[s.nation]}</td>
+      <td style="padding:6px 8px;font-size:11px;white-space:nowrap;">${s.bending_group}</td>
+      <td style="padding:6px 8px;text-align:center;">${rateStr}</td>
+      ${cells}
+    </tr>`;
+  }).join('');
+}
+
+function downloadETCSV(){
+  if(!etSessionHistory.length){ showToast('No ET sessions to export.'); return; }
+  const sessions = etSessionHistory.slice().reverse();
+  const headers = ['Last','First','Nation','Homeroom','Group','IEP','ELL','ET Rate (%)','ET Appeared',
+    ...sessions.map(s=>`${s.standard} (${s.date})`)];
+  const rows = students.map(s=>{
+    const si = students.indexOf(s);
+    let appeared=0, proficient=0;
+    const cells = sessions.map(sess=>{
+      const r = (sess.results||[]).find(r=>r.si===si);
+      if(r) appeared++;
+      if(r?.level==='proficient') proficient++;
+      return r?.level||'absent';
+    });
+    const pct = appeared ? Math.round(proficient/appeared*100) : '';
+    return [s.last,s.first,s.nation,s.homeroom,s.bending_group,s.iep?'Yes':'No',s.ell?'Yes':'No',pct,appeared,...cells];
+  });
+  const csv = [headers,...rows].map(r=>r.map(v=>JSON.stringify(String(v??''))).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `DBA_ExitTickets_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('✓ ET data exported as CSV');
+}
 
 </script>
 </body>
