@@ -2247,7 +2247,15 @@ const SEATING_CHART = {
 };
 
 // ── Google Sheets Backend Config ────────────────────────────────────────
-// After deploying your Apps Script, paste your Web App URL here:
+// To enable Google Sheets sync:
+//   1. Open your Apps Script project and click Deploy → Manage Deployments
+//   2. Create a new deployment (or update the existing one)
+//   3. Copy the fresh Web App URL and paste it below in place of PASTE_YOUR_WEB_APP_URL_HERE
+//   4. Make sure "Who has access" is set to "Anyone"
+//
+// While the URL below is the placeholder, Sheets sync is silently disabled
+// and NO console warnings will appear. All chi/goals/progress save locally
+// via localStorage as normal.
 const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbx6N_LOor64jrv30iwZeapeg306Z0L2tdvyEsxe17tzEr_RtJw5QNpO0PuMwDjQigco/exec';
 const SHEETS_ENABLED = SHEETS_API_URL !== 'PASTE_YOUR_WEB_APP_URL_HERE';
 
@@ -2257,7 +2265,7 @@ async function sheetsGet(action) {
   try {
     const r = await fetch(`${SHEETS_API_URL}?action=${action}`, {mode:'cors'});
     return await r.json();
-  } catch(e) { console.warn('Sheets GET failed:', e); return null; }
+  } catch(e) { console.debug('Sheets GET failed (sync disabled or URL unreachable):', e.message); return null; }
 }
 
 async function sheetsPost(body) {
@@ -2276,14 +2284,14 @@ async function sheetsPost(body) {
 
     const data = await r.json();
     if (data && data.ok === false) {
-      console.warn('Sheets POST returned error:', data);
+      console.debug('Sheets POST returned error:', data);
       if (statusEl) statusEl.textContent = '⚠ Sheet write failed';
     } else if (statusEl) {
       statusEl.textContent = `✓ Synced ${new Date().toLocaleTimeString()}`;
     }
     return data;
   } catch (e) {
-    console.warn('Sheets POST failed:', e, body);
+    console.debug('Sheets POST failed (sync disabled or URL unreachable):', e.message);
     if (statusEl) statusEl.textContent = '⚠ Sheet write failed';
     return null;
   }
@@ -2350,6 +2358,9 @@ async function loadFromSheets() {
       });
     }
 
+    // Re-seed level cache from loaded chi so level-up detection is accurate
+    students.forEach(function(s, i){ _prevLevelCache[i] = getLevel(s.chi); s.level = getLevel(s.chi); });
+
     // Load extended data (ET sessions, quests, streaks)
     const ext = await sheetsGet('getExtended');
     if(ext && !ext.error){
@@ -2371,6 +2382,11 @@ async function loadFromSheets() {
     }
 
     if (statusEl) statusEl.textContent = `✓ Synced ${new Date().toLocaleTimeString()}`;
+    // Re-render all live materials with the freshly loaded sheets data
+    try { renderOverview(); } catch(e){}
+    try { renderChiLog(); } catch(e){}
+    ['Water','Fire','Earth'].forEach(function(n){ try { renderNation(n); } catch(e){}});
+    try { renderGoalCards(); } catch(e){}
     console.log('Loaded from Sheets:', {
       students: data.students?.length,
       scoreKeys: Object.keys(data.scores||{}).length,
@@ -2380,7 +2396,7 @@ async function loadFromSheets() {
     });
   } catch(e) {
     if (statusEl) statusEl.textContent = '⚠ Sync error — using built-in data';
-    console.warn('loadFromSheets error:', e);
+    console.debug('loadFromSheets error (non-fatal — using localStorage):', e.message);
   }
 }
 
@@ -2388,11 +2404,16 @@ async function loadFromSheets() {
 async function saveChiToSheets(studentIdx) {
   const s = students[studentIdx];
   if (!s) return null;
+  // Compute live level so Sheets always gets the most current value
+  const _lvl = getLevel(s.chi);
+  s.level = _lvl; // keep in sync
   return await sheetsPost({
     action: 'updateChi',
     student_key: `${s.last}_${s.first}`,
     chi: s.chi,
-    chi_type: s.chi_type || ''
+    chi_type: s.chi_type || '',
+    level: _lvl,
+    level_name: getLevelName(s.chi)
   });
 }
 
@@ -2433,6 +2454,7 @@ async function awardSingle(idx, type, amount) {
     await appendChiLogToSheets(idx, amount, type, type);
   }
 
+  updateChiDisplay(idx); // triggers checkAndApplyLevelUp + live material refresh
   renderChiLog && renderChiLog();
   renderPrepRoster && renderPrepRoster();
   renderOverview && renderOverview();
@@ -3981,6 +4003,59 @@ function quickAward(idx){
   renderTrackerGrid();
   updateAwardPanel();
 }
+// ════════════════════════════════════════════════
+//  AUTO LEVEL-UP ENGINE
+// ════════════════════════════════════════════════
+const _LEVEL_THRESHOLDS = [0, 0, 75, 200, 400, 700];
+const _LEVEL_NAMES_LIST  = ['','Novice','Apprentice','Bender','Master','Avatar'];
+const _LEVEL_ICONS_LIST  = ['','○','◈','◉','✦','☯'];
+const _prevLevelCache = {};
+
+function checkAndApplyLevelUp(studentIdx) {
+  const s = students[studentIdx];
+  if (!s) return;
+  const newLvl = getLevel(s.chi);
+  const oldLvl = _prevLevelCache[studentIdx] != null
+    ? _prevLevelCache[studentIdx]
+    : (s.level || newLvl);
+  _prevLevelCache[studentIdx] = newLvl;
+  if (newLvl > oldLvl) {
+    s.level = newLvl;
+    const lvlName = _LEVEL_NAMES_LIST[newLvl] || 'Avatar';
+    const lvlIcon = _LEVEL_ICONS_LIST[newLvl] || '☯';
+    setTimeout(() => {
+      showToast('🎉 LEVEL UP! ' + s.first + ' ' + s.last + ' is now ' + lvlIcon + ' ' + lvlName + '! ✨');
+    }, 400);
+    if (SHEETS_ENABLED) {
+      // updateGoals writes to Students tab which has a level column
+      sheetsPost({
+        action: 'updateGoals',
+        student_key: s.last + '_' + s.first,
+        level: newLvl,
+        level_name: lvlName
+      }).catch(function(e){ console.debug('updateLevel sheets error:', e.message); });
+    }
+    _refreshAllLiveMaterials();
+  }
+}
+
+function _refreshAllLiveMaterials() {
+  try { renderOverview(); } catch(e){}
+  try { renderChiLog(); } catch(e){}
+  ['Water','Fire','Earth'].forEach(function(n){ try { renderNation(n); } catch(e){} });
+  var gcSec = document.getElementById('goalcards');
+  if (gcSec && gcSec.classList.contains('visible')) { try { renderGoalCards(); } catch(e){} }
+  var placardSec = document.getElementById('placards');
+  if (placardSec && placardSec.classList.contains('visible')) { try { renderPlacards(); } catch(e){} }
+  var sheetSec = document.getElementById('studentsheet');
+  if (sheetSec && sheetSec.classList.contains('visible')) {
+    var sel = document.getElementById('sheetStudentSelect');
+    if (sel && sel.value !== '') { try { loadStudentSheet(parseInt(sel.value)); } catch(e){} }
+  }
+  var rosterSec = document.getElementById('roster');
+  if (rosterSec && rosterSec.classList.contains('visible')) { try { renderRoster(); } catch(e){} }
+}
+
 function updateChiDisplay(idx){
   const s = students[idx];
   ['schi-','tchi-','lchi-'].forEach(prefix=>{
@@ -3994,6 +4069,8 @@ function updateChiDisplay(idx){
   // keep header chi total live
   const hdr = document.getElementById('cdTotalChi');
   if(hdr) hdr.textContent = students.reduce((a,s)=>a+s.chi,0);
+  // ── Auto level-up check & live-material refresh ──
+  checkAndApplyLevelUp(idx);
 }
 function renderChiLog(){
   const empty = '<div style="font-size:12px;opacity:.35;font-style:italic;">No chi awarded yet this session.</div>';
@@ -5808,6 +5885,11 @@ function renderGoalCards(){
           <div class="gc-meta">${icon} ${s.nation} Nation &nbsp;&middot;&nbsp; ${bicon} ${s.bending_group} &nbsp;&middot;&nbsp; ${s.homeroom}</div>
         </div>
         ${priPill?`<div style="align-self:center;flex-shrink:0;">${priPill}</div>`:''}
+        <div style="align-self:center;flex-shrink:0;text-align:center;padding:4px 8px;background:rgba(0,0,0,.25);border-radius:8px;border:1px solid ${nc}30;">
+          <div style="font-size:9px;font-weight:900;color:${nc};letter-spacing:.08em;text-transform:uppercase;">${getLevelIcon(getLevel(s.chi))} ${getLevelName(s.chi)}</div>
+          <div style="font-size:11px;font-weight:700;color:#d4a843;">${s.chi} Chi</div>
+          <div style="font-size:8px;opacity:.55;margin-top:2px;">${chiToNextLevel(s.chi)}</div>
+        </div>
       </div>
       <div class="gc-body">
         <div class="gc-section">
@@ -6080,6 +6162,8 @@ function buildStudentSheet(s){
           <span style="font-size:8pt;">${bicon} ${s.bending_group}</span>
           <span style="font-size:8pt;">📚 ${s.homeroom}</span>
           <span style="font-size:8pt;">🎯 <b style="color:${nc};">${pri}</b></span>
+          <span style="font-size:8pt;font-weight:700;color:${nc};">${getLevelIcon(getLevel(s.chi))} ${getLevelName(s.chi)} &nbsp;·&nbsp; ${s.chi} Chi</span>
+          <span style="font-size:7pt;opacity:.55;">${chiToNextLevel(s.chi)}</span>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:5px;border-top:1px solid #e0d8c8;padding-top:4px;">
           <div style="font-size:7.5pt;"><span style="text-transform:uppercase;letter-spacing:.07em;opacity:.4;font-size:6pt;">Skills Goal&nbsp;&nbsp;</span>${skillGoal}</div>
@@ -6540,6 +6624,8 @@ const _origAwardSingle   = typeof awardSingle   === 'function' ? awardSingle   :
 
 // ── Load saved session before first render ────────────────────────────────
 const _loadedAt = loadSession();
+// ── Seed level cache so chi awards correctly detect level-ups vs starting level ──
+students.forEach(function(s, i){ _prevLevelCache[i] = getLevel(s.chi); s.level = getLevel(s.chi); });
 
 // ── Patch state-mutating functions to autoSave after each call ────────────
 (function(){
@@ -7964,7 +8050,7 @@ function buildColumnDefs() {
   if (chk('ex_ia1'))          cols.push({ h: 'IA1 (%)',      v: (s) => s.ia1 != null ? s.ia1.toFixed(2) : '' });
   if (chk('ex_ia2'))          cols.push({ h: 'IA2 (%)',      v: (s) => s.ia2 != null ? s.ia2.toFixed(2) : '' });
   if (chk('ex_growth'))       cols.push({ h: 'Growth (%)',   v: (s) => s.growth != null ? s.growth.toFixed(2) : '' });
-  if (chk('ex_level'))        cols.push({ h: 'Level',        v: (s) => s.level != null ? s.level : '' });
+  if (chk('ex_level'))        cols.push({ h: 'Level',        v: (s) => getLevel(s.chi) });
   if (chk('ex_momentum'))     cols.push({ h: 'Momentum',     v: (s) => s.momentum || '' });
   if (chk('ex_w24'))          cols.push({ h: 'W24 (%)',      v: (s) => s.w24_pct != null ? s.w24_pct.toFixed(1) : '' });
   if (chk('ex_w25'))          cols.push({ h: 'W25 (%)',      v: (s) => s.w25_pct != null ? s.w25_pct.toFixed(1) : '' });
@@ -8705,9 +8791,11 @@ function _buildPlacard(s, forPrint){
   const LEVEL_COLS  = ['','#94a3b8','#4ade80','#60a5fa','#c084fc','#ffd700'];
 
   const cfg = NATION_CFG[s.nation] || NATION_CFG.Water;
-  const lvlName = LEVEL_NAMES[s.level] || 'Novice';
-  const lvlIcon = LEVEL_ICONS[s.level] || '○';
-  const lvlCol  = LEVEL_COLS[s.level]  || '#94a3b8';
+  // ── Always derive level live from chi so placards auto-update ──
+  const liveLvl = getLevel(s.chi);
+  const lvlName = LEVEL_NAMES[liveLvl] || 'Novice';
+  const lvlIcon = LEVEL_ICONS[liveLvl] || '○';
+  const lvlCol  = LEVEL_COLS[liveLvl]  || '#94a3b8';
   const bendIcon = (typeof BENDING_ICONS !== 'undefined' && BENDING_ICONS[s.bending_group]) || '⚡';
 
   const scoreCol = pct => {
@@ -8807,6 +8895,7 @@ function _buildPlacard(s, forPrint){
         <div style="font-size:${f.lvlIcon}px;">${lvlIcon}</div>
         <div style="font-size:${f.lvlName}px;font-weight:900;color:${lvlCol};letter-spacing:.09em;text-transform:uppercase;margin-top:1px;${printColorStyle}">${lvlName}</div>
         <div style="font-size:${f.lvlChi}px;font-weight:900;color:${cfg.gold};margin-top:1px;${printColorStyle}">${s.chi} Chi</div>
+        ${(()=>{ const thresholds=[0,0,75,200,400,700]; const nxt=thresholds[Math.min(_liveLvl+1,5)]; const cur=thresholds[_liveLvl]||0; const pct=_liveLvl>=5?100:Math.round(Math.min(100,(s.chi-cur)/(nxt-cur)*100)); const toGo=_liveLvl>=5?'Max!':((nxt-s.chi)+' to '+(LEVEL_NAMES[_liveLvl+1]||'Avatar')); return '<div style="margin-top:4px;width:100%;background:rgba(0,0,0,.4);border-radius:3px;height:5px;overflow:hidden;'+printColorStyle+'"><div style="height:100%;width:'+pct+'%;background:'+lvlCol+';border-radius:3px;transition:width .5s;'+printColorStyle+'"></div></div><div style="font-size:'+(f.footer||8)+'px;opacity:.45;margin-top:2px;white-space:nowrap;">'+toGo+'</div>'; })()}
       </div>
     </div>
 
