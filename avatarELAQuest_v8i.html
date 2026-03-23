@@ -2403,6 +2403,17 @@ async function loadFromSheets() {
       });
     }
 
+    // Run score-to-chi award engine on loaded scores (same logic as Pull Scores)
+    if(data.scores){
+      function _fuzzyLoad(scoreData, last, first){
+        const exact=last+'_'+first; if(scoreData[exact]) return scoreData[exact];
+        const short=last+'_'+first.split(' ')[0]; if(scoreData[short]) return scoreData[short];
+        return null;
+      }
+      const _loadAwards = applyScoreChiAwards(data.scores, _fuzzyLoad);
+      if(_loadAwards.length) autoSave();
+    }
+
     // Re-seed level cache from loaded chi so level-up detection is accurate
     students.forEach(function(s, i){ _prevLevelCache[i] = getLevel(s.chi); s.level = getLevel(s.chi); });
     // Re-render roster if visible so new scores show immediately
@@ -6575,6 +6586,9 @@ function showToast(msg){
 const SAVE_KEY = 'avatarELAQuest_v8i';
 
 function getSavePayload(){
+  // Collect _chiAwardedFor from each student into a flat map
+  const chiAwardedFor = {};
+  students.forEach((s,i) => { if(s._chiAwardedFor && Object.keys(s._chiAwardedFor).length) chiAwardedFor[i] = s._chiAwardedFor; });
   return {
     savedAt: new Date().toISOString(),
     chiValues:    students.map(s=>s.chi),
@@ -6585,6 +6599,7 @@ function getSavePayload(){
     classSessions: classSessions,
     typeStreaks:   typeStreaks,
     comboState:   comboState,
+    chiAwardedFor: chiAwardedFor,
     _v:           1
   };
 }
@@ -6624,6 +6639,12 @@ function loadSession(){
     // Restore Chi values
     if(Array.isArray(data.chiValues)){
       data.chiValues.forEach((chi,i)=>{ if(students[i]) students[i].chi = chi||0; });
+    }
+    // Restore which assessments have already been chi-awarded
+    if(data.chiAwardedFor){
+      Object.entries(data.chiAwardedFor).forEach(([i,awarded])=>{
+        if(students[i]) students[i]._chiAwardedFor = awarded;
+      });
     }
 
     // Restore arrays & objects
@@ -9183,6 +9204,188 @@ function printPlacards(){
 // ════════════════════════════════════════════════════════════════
 //  SHEET SYNC TAB
 // ════════════════════════════════════════════════════════════════
+// ── Shared score-to-chi award engine ─────────────────────────────────────
+// Called whenever new scores are loaded (from Sheets sync or page load).
+// Compares incoming scores against what's already stored, awards chi for
+// genuine growth or first-time mastery, and never double-awards.
+// ── Assessment tracks ────────────────────────────────────────────────────
+// Quizzes (W##, Quiz W##) form one track — each compares only to the previous quiz.
+// IAs (IA1, IA2) form another track — IA1→IA2 compares within that track.
+// Bridges: IA2→Mock, Mock→State Test cross the tracks.
+// Everything else does NOT cross tracks (no IA2→W24, no W26→Mock, etc.)
+
+// Identify which track an assessment belongs to
+function asmtTrack(name){
+  if(name === 'IA1' || name === 'IA2') return 'ia';
+  if(name === 'Mock' || name === 'Mock Exam') return 'mock';
+  if(name === 'State Test' || name === 'NYS State Test') return 'state';
+  // Weekly quizzes: W24, W25, Quiz W26, W27, etc.
+  return 'quiz';
+}
+
+// Sort key within a track — extracts the week/number for ordering
+function asmtSortKey(name){
+  if(name === 'IA1') return 1;
+  if(name === 'IA2') return 2;
+  if(name === 'Mock' || name === 'Mock Exam') return 1;
+  if(name === 'State Test' || name === 'NYS State Test') return 2;
+  // Extract number from quiz names: W24→24, Quiz W26→26, W27→27
+  const m = name.match(/(\d+)/);
+  return m ? parseInt(m[1]) : 999;
+}
+
+// Given the current assessment, return the ONE valid previous assessment
+// for a growth comparison — or null if none applies.
+//
+// Rules:
+//   Quiz: compare to most recent previous score of ANY type
+//         (previous quiz if exists, otherwise IA2, otherwise IA1)
+//   IA2:  compare to IA1 only
+//   Mock: compare to IA2 only
+//   State Test: compare to Mock only
+function getComparisonAsmt(s, currentAsmt){
+  if(!s.scores) return null;
+  const track = asmtTrack(currentAsmt);
+
+  // IA track: IA2 → IA1 only
+  if(track === 'ia'){
+    if(currentAsmt === 'IA2' && s.scores['IA1']) return 'IA1';
+    return null;
+  }
+
+  // Mock: IA2 → Mock only
+  if(track === 'mock'){
+    if(s.scores['IA2']) return 'IA2';
+    return null;
+  }
+
+  // State Test: Mock → State only
+  if(track === 'state'){
+    const mockKey = Object.keys(s.scores).find(k => asmtTrack(k) === 'mock');
+    return mockKey || null;
+  }
+
+  // Quiz track: compare to the most recent previous score of ANY type
+  // (prior quiz first, then IA2, then IA1 as fallback)
+  if(track === 'quiz'){
+    const currentNum = asmtSortKey(currentAsmt);
+
+    // Most recent prior quiz
+    const priorQuizzes = Object.keys(s.scores)
+      .filter(k => asmtTrack(k) === 'quiz' && k !== currentAsmt && asmtSortKey(k) < currentNum)
+      .sort((a,b) => asmtSortKey(b) - asmtSortKey(a));
+    if(priorQuizzes.length) return priorQuizzes[0];
+
+    // No prior quiz — fall back to IA2, then IA1
+    if(s.scores['IA2']) return 'IA2';
+    if(s.scores['IA1']) return 'IA1';
+    return null;
+  }
+
+  return null;
+}
+
+function crossAwardKey(prevAsmt, currentAsmt){ return prevAsmt + '→' + currentAsmt; }
+
+function applyScoreChiAwards(scoreDataMap, fuzzyLookupFn){
+  const timeStr = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const awardLog = [];
+
+  function parseNum(v){ if(v===null||v===undefined||v==='') return null; if(typeof v==='number') return v; var n=parseFloat(String(v).replace('%','')); return isNaN(n)?null:n; }
+
+  students.forEach((s, si) => {
+    const scoreMap = fuzzyLookupFn ? fuzzyLookupFn(scoreDataMap, s.last, s.first) : scoreDataMap[s.last+'_'+s.first];
+    if(!scoreMap) return;
+    if(!s.scores) s.scores = {};
+    if(!s._chiAwardedFor) s._chiAwardedFor = {};
+
+    // First pass: store all incoming scores
+    Object.entries(scoreMap).forEach(([asmt, vals]) => {
+      const newPct = parseNum(vals.pct);
+      if(newPct === null || isNaN(newPct)) return;
+      s.scores[asmt] = {
+        pct: newPct,
+        mc:  parseNum(vals.mc),
+        crq: parseNum(vals.crq),
+        date: vals.date || null
+      };
+    });
+
+    // Second pass: award chi based on growth across assessments
+    // Sort incoming assessments in chronological order
+    const incomingAsmts = Object.keys(scoreMap).sort((a,b) => asmtSortKey(a) - asmtSortKey(b));
+
+    incomingAsmts.forEach(asmt => {
+      const newPct = parseNum(scoreMap[asmt].pct);
+      if(newPct === null || isNaN(newPct)) return;
+
+      // Skip if already awarded for this assessment
+      if(s._chiAwardedFor[asmt]) return;
+
+      // Find the valid comparison assessment for this track
+      const prevAsmt = getComparisonAsmt(s, asmt);
+      const prevPct = prevAsmt ? Number(s.scores[prevAsmt].pct) : null;
+      const crossKey = prevAsmt ? crossAwardKey(prevAsmt, asmt) : null;
+
+      // Skip if we already awarded for this exact cross-assessment transition
+      if(crossKey && s._chiAwardedFor[crossKey]) return;
+
+      // Growth is vs the previous assessment (W24→W25, W25→Quiz W26, etc.)
+      const growth = prevPct !== null ? (newPct - prevPct) : null;
+      const isFirstEver = prevPct === null; // no prior assessment at all
+      const hasPriority = s.priority_standard;
+      let award = null;
+
+      if(newPct >= 82 && (isFirstEver || growth === null || growth >= 0)){
+        // Mastery — award as long as they didn't regress TO mastery from higher
+        award = {
+          type: 'standard_mastery',
+          label: hasPriority
+            ? `Priority Standard Mastery 🎯 (\${asmt})`
+            : `Standard Mastery (\${asmt})`,
+          chi: 40
+        };
+      } else if(growth !== null && growth >= 5){
+        award = { type: 'quiz_growth', label: `Quiz Growth \${prevAsmt}→\${asmt} +\${Math.round(growth)}pts`, chi: 25 };
+      } else if(growth !== null && growth >= 2){
+        award = { type: 'grew_on_standard', label: `Grew \${prevAsmt}→\${asmt} +\${Math.round(growth)}pts`, chi: 15 };
+      } else if(isFirstEver && newPct >= 63){
+        award = { type: 'quiz_growth', label: `Quiz Growth — first attempt (\${asmt})`, chi: 25 };
+      } else if(isFirstEver && newPct >= 40){
+        award = { type: 'grew_on_standard', label: `Grew on Standard — first attempt (\${asmt})`, chi: 15 };
+      }
+
+      // Only award if they actually grew (or it's brand new)
+      const shouldAward = award && (isFirstEver || (growth !== null && growth > 0));
+      if(shouldAward){
+        s.chi += award.chi;
+        // Mark both the assessment and the cross-transition as awarded
+        s._chiAwardedFor[asmt] = true;
+        if(crossKey) s._chiAwardedFor[crossKey] = true;
+        updateChiDisplay(si);
+        chiLog.unshift({
+          name: `\${s.first} \${s.last}`,
+          amount: award.chi,
+          type: award.type,
+          time: timeStr,
+          sessionDate: todayStr(),
+          studentIdxs: [si],
+          chiType2: chiType(s),
+          chiType: chiTypeName(s),
+          autoAwarded: true
+        });
+        awardLog.push(`\${s.first} \${s.last}: +\${award.chi} (\${award.label})`);
+        if(SHEETS_ENABLED){
+          saveChiToSheets(si);
+          appendChiLogToSheets(si, award.chi, award.type, award.label);
+        }
+      }
+    });
+  });
+
+  return awardLog;
+}
+
 async function syncSheetTab(tab){
   const statusId = tab === 'all' ? 'sync-all-status' : `sync-${tab}-status`;
   const el = document.getElementById(statusId);
@@ -9217,93 +9420,19 @@ async function syncSheetTab(tab){
         const autoAwardLog = []; // track chi awarded from score growth
         const timeStr = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
 
-        // Build a fuzzy key lookup — handles partial name matches like "Ann" → "Ann Marie"
-        function fuzzyScoreKey(data, last, first){
+        // Fuzzy key lookup — handles partial name matches like "Stroude_Ann" → "Stroude_Ann Marie"
+        function fuzzyScoreKey(scoreData, last, first){
           const exact = `${last}_${first}`;
-          if(data[exact]) return data[exact];
-          // Try last_firstName (first word only)
+          if(scoreData[exact]) return scoreData[exact];
           const firstWord = `${last}_${first.split(' ')[0]}`;
-          if(data[firstWord]) return data[firstWord];
-          // Try matching any key that starts with last_
+          if(scoreData[firstWord]) return scoreData[firstWord];
           const prefix = last + '_';
-          const candidate = Object.keys(data).find(k => k.startsWith(prefix));
-          if(candidate && candidate.toLowerCase().includes(first.split(' ')[0].toLowerCase())) return data[candidate];
-          return null;
+          const candidate = Object.keys(scoreData).find(k => k.startsWith(prefix) && k.toLowerCase().includes(first.split(' ')[0].toLowerCase()));
+          return candidate ? scoreData[candidate] : null;
         }
 
-        students.forEach((s, si) => {
-          const scoreMap = fuzzyScoreKey(data, s.last, s.first);
-          if(!scoreMap) return;
-          if(!s.scores) s.scores = {};
-
-          Object.entries(scoreMap).forEach(([asmt, vals]) => {
-            const newPct = Number(vals.pct) || 0;
-            const oldPct = s.scores[asmt] ? Number(s.scores[asmt].pct) : null;
-            const isNewAsmt = oldPct === null;
-
-            // Store the score (with date for future ordering)
-            function _pn3(v){ if(v===null||v===undefined||v==='') return null; if(typeof v==='number') return v; var n=parseFloat(String(v).replace('%','')); return isNaN(n)?null:n; }
-            s.scores[asmt] = {pct: newPct, mc: _pn3(vals.mc), crq: _pn3(vals.crq), date: vals.date || null};
-
-            // Auto-award chi if this is a new or improved score
-            // Only award if not already awarded for this asmt (track in s._chiAwardedFor)
-            if(!s._chiAwardedFor) s._chiAwardedFor = {};
-            if(s._chiAwardedFor[asmt]) return; // already awarded for this assessment
-
-            const growth = (oldPct !== null) ? (newPct - oldPct) : null;
-
-            // Determine award based on growth from previous score + mastery threshold
-            // Raw score alone doesn't mean growth — must compare to previous
-            let award = null;
-            const hasPriority = s.priority_standard;
-
-            if(newPct >= 82 && (isNewAsmt || growth === null || growth >= 0)){
-              // Mastery threshold — award regardless of growth direction, but only if not regressing heavily
-              award = {
-                type: 'standard_mastery',
-                label: hasPriority ? `Priority Standard Mastery 🎯 (${asmt})` : `Standard Mastery (${asmt})`,
-                chi: 40
-              };
-            } else if(growth !== null && growth >= 10){
-              // Strong growth (≥10pts) — quiz growth award
-              award = { type: 'quiz_growth', label: `Quiz Growth +${Math.round(growth)}pts (${asmt})`, chi: 25 };
-            } else if(growth !== null && growth >= 5){
-              // Solid growth (≥5pts)
-              award = { type: 'quiz_growth', label: `Quiz Growth +${Math.round(growth)}pts (${asmt})`, chi: 25 };
-            } else if(growth !== null && growth >= 2){
-              // Small but real growth (≥2pts)
-              award = { type: 'grew_on_standard', label: `Grew on Standard +${Math.round(growth)}pts (${asmt})`, chi: 15 };
-            } else if(isNewAsmt && newPct >= 63){
-              // First time taking this assessment and scored well — no prior to compare, use score
-              award = { type: 'quiz_growth', label: `Quiz Growth — first attempt (${asmt})`, chi: 25 };
-            } else if(isNewAsmt && newPct >= 40){
-              award = { type: 'grew_on_standard', label: `Grew on Standard — first attempt (${asmt})`, chi: 15 };
-            }
-
-            // Only award if score actually improved (or is brand new)
-            if(award && (isNewAsmt || (growth !== null && growth > 0))){
-              s.chi += award.chi;
-              s._chiAwardedFor[asmt] = true; // mark as awarded so re-syncing doesn't double-award
-              updateChiDisplay(si);
-              chiLog.unshift({
-                name: `${s.first} ${s.last}`,
-                amount: award.chi,
-                type: award.type,
-                time: timeStr,
-                sessionDate: todayStr(),
-                studentIdxs: [si],
-                chiType2: chiType(s),
-                chiType: chiTypeName(s),
-                autoAwarded: true
-              });
-              autoAwardLog.push(`${s.first} ${s.last}: +${award.chi} (${award.label})`);
-              if(SHEETS_ENABLED){
-                saveChiToSheets(si);
-                appendChiLogToSheets(si, award.chi, award.type, award.label);
-              }
-            }
-          });
-        });
+        // Use shared award engine — stores scores + awards chi for growth/mastery
+        const _syncAwardLog = applyScoreChiAwards(data, fuzzyScoreKey);
 
         // Re-render everything that shows scores or chi
         try { renderOverview(); } catch(e){}
@@ -9317,7 +9446,7 @@ async function syncSheetTab(tab){
         autoSave();
 
         if(tab === 'scores'){
-          const awarded = autoAwardLog.length;
+          const awarded = _syncAwardLog.length;
           el.textContent = `✓ Pulled scores for ${Object.keys(data).length} students${awarded ? ' · ' + awarded + ' auto-awarded Chi' : ''} — ${new Date().toLocaleTimeString()}`;
         }
       }
