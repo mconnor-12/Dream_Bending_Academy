@@ -903,14 +903,14 @@ main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14p
   <div class="countdown-row">
     <div class="countdown-block mock">
       <div class="cd-label">MOCK EXAM</div>
-      <div class="cd-date">March 23–24</div>
+      <div class="cd-date" id="cdMockDateDisplay">March 23–24</div>
       <div class="cd-days" id="cdMockDays">—</div>
       <div class="cd-sub">days away</div>
     </div>
     <div class="countdown-divider">⚡</div>
     <div class="countdown-block state">
       <div class="cd-label">🏔 NYS STATE TEST</div>
-      <div class="cd-date">April 15–16</div>
+      <div class="cd-date" id="cdStateDateDisplay">April 15–16</div>
       <div class="cd-days" id="cdStateDays">—</div>
       <div class="cd-sub">days away</div>
     </div>
@@ -1469,15 +1469,13 @@ main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14p
   </div>
 
   <div style="overflow-x:auto;">
-  <table class="roster-table" style="min-width:820px;">
-    <thead><tr>
+  <table class="roster-table" style="min-width:820px;" id="rosterTableMain">
+    <thead id="rosterHead"><tr>
       <th onclick="sortRoster('name')" style="cursor:pointer;">Name ↕</th>
       <th>Nation</th>
       <th onclick="sortRoster('bending_group')" style="cursor:pointer;">Group ↕</th>
       <th onclick="sortRoster('ia1_pct')" style="cursor:pointer;" title="Interim Assessment 1">IA1 % ↕</th>
       <th onclick="sortRoster('ia2_pct')" style="cursor:pointer;" title="Interim Assessment 2">IA2 % ↕</th>
-      <th onclick="sortRoster('w24_pct')" style="cursor:pointer;" title="Winter 2024">W24 % ↕</th>
-      <th onclick="sortRoster('w25_pct')" style="cursor:pointer;" title="Winter 2025 — most recent">W25 % ↕</th>
       <th title="IA1 → IA2 growth">IA Growth</th>
       <th>Momentum</th>
       <th>Priority Standard</th>
@@ -2163,7 +2161,26 @@ main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14p
       <div><b style="color:var(--ember);">Chi_Streaks tab</b> — Edit the chi column to manually adjust a student's Chi total. Then click "Pull Chi & Streaks".</div>
       <div><b style="color:var(--earth-l);">Extended_Data tab</b> — This is a JSON blob — best not to edit directly. Use the dashboard instead.</div>
     </div>
-  </div>
+  
+
+  <!-- DATE CONFIGURATION -->
+  <div style="margin-top:24px;background:rgba(77,184,232,.06);border:1px solid rgba(77,184,232,.2);border-radius:12px;padding:18px 20px;">
+    <div style="font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;color:var(--water-l);margin-bottom:14px;">📅 Assessment Date Settings</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.55;margin-bottom:6px;">🧪 Mock Exam Date</div>
+        <input type="date" id="cfgMockDate" style="background:rgba(0,0,0,.3);border:1px solid rgba(77,184,232,.3);border-radius:6px;padding:6px 10px;color:#fff;font-size:13px;width:100%;">
+        <input type="text" id="cfgMockLabel" placeholder="Display label e.g. March 23–24" style="margin-top:6px;background:rgba(0,0,0,.3);border:1px solid rgba(77,184,232,.2);border-radius:6px;padding:6px 10px;color:#fff;font-size:12px;width:100%;">
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.55;margin-bottom:6px;">🏔 NYS State Test Date</div>
+        <input type="date" id="cfgStateDate" style="background:rgba(0,0,0,.3);border:1px solid rgba(212,168,67,.3);border-radius:6px;padding:6px 10px;color:#fff;font-size:13px;width:100%;">
+        <input type="text" id="cfgStateLabel" placeholder="Display label e.g. April 15–16" style="margin-top:6px;background:rgba(0,0,0,.3);border:1px solid rgba(212,168,67,.2);border-radius:6px;padding:6px 10px;color:#fff;font-size:12px;width:100%;">
+      </div>
+    </div>
+    <button onclick="saveDateConfigFromUI()" style="margin-top:14px;padding:8px 24px;border-radius:8px;background:linear-gradient(135deg,rgba(77,184,232,.25),rgba(77,184,232,.1));border:1.5px solid var(--water-l);color:var(--water-l);font-family:'Cinzel',serif;font-size:12px;letter-spacing:.08em;cursor:pointer;font-weight:700;">💾 Save Dates</button>
+    <span id="dateSaveStatus" style="font-size:11px;color:#52c788;margin-left:10px;opacity:0;transition:opacity .5s;"></span>
+  </div></div>
 </section>
 
 <!-- ═══════════════════════════════════════════ ET EXPORT TAB -->
@@ -2263,6 +2280,28 @@ const SEATING_CHART = {
 const SHEETS_API_URL = 'https://script.google.com/macros/s/AKfycbx6N_LOor64jrv30iwZeapeg306Z0L2tdvyEsxe17tzEr_RtJw5QNpO0PuMwDjQigco/exec';
 const SHEETS_ENABLED = SHEETS_API_URL !== 'PASTE_YOUR_WEB_APP_URL_HERE';
 
+// ── Assessment Date Config (editable from Sheet Sync tab) ──────────────
+// Stored in localStorage; defaults shown here
+const DATE_CONFIG_KEY = 'avatarELA_dateConfig';
+function loadDateConfig(){
+  try {
+    const raw = localStorage.getItem(DATE_CONFIG_KEY);
+    if(raw) return JSON.parse(raw);
+  } catch(e){}
+  return {
+    mockDate:  '2026-03-23', // YYYY-MM-DD
+    mockLabel: 'Mock Exam',
+    mockDateDisplay: 'March 23–24',
+    stateDate:  '2026-04-15',
+    stateLabel: 'NYS State Test',
+    stateDateDisplay: 'April 15–16',
+  };
+}
+function saveDateConfig(cfg){
+  try { localStorage.setItem(DATE_CONFIG_KEY, JSON.stringify(cfg)); } catch(e){}
+}
+let DATE_CFG = loadDateConfig();
+
 // ── Sheets API helpers ───────────────────────────────────────────────────
 async function sheetsGet(action) {
   if (!SHEETS_ENABLED) return null;
@@ -2330,15 +2369,17 @@ async function loadFromSheets() {
       });
     }
 
-    // Overlay scores
+    // Overlay scores (fuzzy match handles "Stroude_Ann" → "Stroude_Ann Marie" etc.)
     if (data.scores) {
       students.forEach(s => {
-        const key = `${s.last}_${s.first}`;
-        const scoreMap = data.scores[key];
+        const exactKey = `${s.last}_${s.first}`;
+        const shortKey = `${s.last}_${s.first.split(' ')[0]}`;
+        const scoreMap = data.scores[exactKey] || data.scores[shortKey];
         if (scoreMap) {
           Object.entries(scoreMap).forEach(([asmt, vals]) => {
             if (!s.scores) s.scores = {};
-            s.scores[asmt] = {pct: vals.pct, mc: vals.mc, crq: vals.crq};
+            function _pn2(v){ if(v===null||v===undefined||v==='') return null; if(typeof v==='number') return v; var n=parseFloat(String(v).replace('%','')); return isNaN(n)?null:n; }
+            s.scores[asmt] = {pct: _pn2(vals.pct), mc: _pn2(vals.mc), crq: _pn2(vals.crq), date: vals.date||''};
           });
         }
       });
@@ -3232,7 +3273,7 @@ function showTab(id){
   if(id==='questrace') renderQuestRace();
   if(id==='exportcsv') initExportTab();
   if(id==='placards'){ renderSlotPicker(); renderPlacards(); }
-  if(id==='sheetsync'){ /* no init needed */ }
+  if(id==='sheetsync'){ initDateConfigUI(); }
   if(id==='etexport'){ initETExportTab(); }
 }
 
@@ -4317,24 +4358,68 @@ function renderRoster(){
     if(search&&!(s.first+' '+s.last+' '+s.bending_group+' '+(s.priority_standard||'')).toLowerCase().includes(search)) return false;
     return true;
   });
+
+  // Collect all known assessment keys from s.scores across all students
+  // Order chronologically: IA1, IA2, then quizzes by number (W24 < W25 < W26...),
+  // then Mock, then State, then anything else by first-seen order
+  const fixedCols = ['IA1','IA2'];
+  const extraCols = new Set();
+  students.forEach(s=>{ if(s.scores) Object.keys(s.scores).forEach(k=>{ if(!fixedCols.includes(k)) extraCols.add(k); }); });
+
+  function chronoOrder(a, b){
+    // Extract a numeric suffix if present (e.g. W24→24, W25→25, Quiz W26→26)
+    const numA = parseInt((a.match(/(\d+)$/) || [])[1] || '0');
+    const numB = parseInt((b.match(/(\d+)$/) || [])[1] || '0');
+    // Known late assessments always go last
+    const lateA = /mock|state|nys/i.test(a) ? 1 : 0;
+    const lateB = /mock|state|nys/i.test(b) ? 1 : 0;
+    if(lateA !== lateB) return lateA - lateB;
+    // Sort by numeric suffix (W24 before W25 before W26 etc.)
+    if(numA !== numB) return numA - numB;
+    // Fall back to alphabetical
+    return a.localeCompare(b);
+  }
+
+  const allScoreCols = [...fixedCols, ...[...extraCols].sort(chronoOrder)];
+
   data = [...data].sort((a,b)=>{
     let av,bv;
     if(rosterSort.field==='name'){av=a.last+a.first;bv=b.last+b.first;}
     else if(rosterSort.field==='bending_group'){av=a.bending_group;bv=b.bending_group;}
     else if(rosterSort.field==='chi'){return (b.chi-a.chi)*rosterSort.dir;}
-    else if(['ia1_pct','ia2_pct','w24_pct','w25_pct'].includes(rosterSort.field)){
-      av=a[rosterSort.field]??-1; bv=b[rosterSort.field]??-1;
-      return (bv-av)*rosterSort.dir;
-    }
     else{av=a[rosterSort.field]||'';bv=b[rosterSort.field]||'';}
     return av<bv?-rosterSort.dir:av>bv?rosterSort.dir:0;
   });
 
+  function getPct(s, col){
+    // Try s.scores first, then legacy fields
+    if(s.scores && s.scores[col] != null) return Number(s.scores[col].pct);
+    if(col==='IA1') return s.ia1_pct??s.ia1??null;
+    if(col==='IA2') return s.ia2_pct??s.ia2??null;
+    return null;
+  }
+
   function scoreCell(pct){
-    if(pct==null) return '<td style="opacity:.3;text-align:center;">—</td>';
+    if(pct==null||isNaN(pct)) return '<td style="opacity:.3;text-align:center;">—</td>';
     const col = pct>=82?'#52c788':pct>=63?'var(--gold)':pct>=40?'#e0a050':'#e07070';
     const bucket = pct>=82?'L4':pct>=63?'L3':pct>=40?'L2':'L1';
-    return `<td style="text-align:center;"><span style="font-size:12px;font-weight:700;color:${col};">${pct}%</span><br><span style="font-size:9px;opacity:.5;">${bucket}</span></td>`;
+    return `<td style="text-align:center;"><span style="font-size:12px;font-weight:700;color:${col};">${Math.round(pct)}%</span><br><span style="font-size:9px;opacity:.5;">${bucket}</span></td>`;
+  }
+
+  // Update header dynamically
+  const thead = document.getElementById('rosterHead');
+  if(thead){
+    thead.innerHTML = `<tr>
+      <th onclick="sortRoster('name')" style="cursor:pointer;">Name ↕</th>
+      <th>Nation</th>
+      <th onclick="sortRoster('bending_group')" style="cursor:pointer;">Group ↕</th>
+      ${allScoreCols.map(col=>`<th style="cursor:pointer;" title="${col}">${col} % ↕</th>`).join('')}
+      <th title="IA1 → IA2 growth">IA Growth</th>
+      <th>Momentum</th>
+      <th>Priority Standard</th>
+      <th onclick="sortRoster('chi')" style="cursor:pointer;">Chi ↕</th>
+      <th>Level</th>
+    </tr>`;
   }
 
   const tbody = document.getElementById('rosterBody');
@@ -4342,23 +4427,21 @@ function renderRoster(){
     const idx = students.indexOf(s);
     const lvl = getLevel(s.chi);
     let growthCell = '<td style="opacity:.3;text-align:center;">—</td>';
-    if(s.ia1_pct!=null && s.ia2_pct!=null){
-      const diff = s.ia2_pct - s.ia1_pct;
+    const ia1 = getPct(s,'IA1'), ia2 = getPct(s,'IA2');
+    if(ia1!=null && ia2!=null){
+      const diff = ia2 - ia1;
       const col = diff>0?'#52c788':diff<0?'#e07070':'var(--gold)';
       const arrow = diff>0?'↑':diff<0?'↓':'→';
       growthCell = `<td style="text-align:center;color:${col};font-weight:700;font-size:12px;">${arrow} ${Math.abs(diff).toFixed(1)}%</td>`;
     }
-    const priStd = s.priority_standard ? `${s.priority_standard} <span style="opacity:.55;font-size:9px;">(${s.priority_standard_label})</span>` : '—';
+    const priStd = s.priority_standard ? `${s.priority_standard} <span style="opacity:.55;font-size:9px;">(${s.priority_standard_label||''})</span>` : '—';
     const momCol = s.momentum==='Growing'?'#52c788':s.momentum==='Maintaining'?'var(--gold)':s.momentum==='Regressing'?'#e07070':'var(--mist)';
     const momIcon = s.momentum==='Growing'?'↑':s.momentum==='Maintaining'?'→':s.momentum==='Regressing'?'↓':'';
     return `<tr class="r-row" onclick="openModal(${idx})">
       <td>${s.first} ${s.last}${s.iep?' <span class="flag flag-iep">IEP</span>':''}${s.ell?' <span class="flag flag-ell">ELL</span>':''}</td>
       <td style="text-align:center;">${nationIcon(s.nation)}</td>
       <td style="font-size:11px;">${s.bending_group}</td>
-      ${scoreCell(s.ia1_pct)}
-      ${scoreCell(s.ia2_pct)}
-      ${scoreCell(s.w24_pct)}
-      ${scoreCell(s.w25_pct)}
+      ${allScoreCols.map(col=>scoreCell(getPct(s,col))).join('')}
       ${growthCell}
       <td style="font-size:11px;color:${momCol};">${momIcon} ${s.momentum||'—'}</td>
       <td style="font-size:10px;opacity:.75;">${priStd}</td>
@@ -5534,8 +5617,9 @@ function openModal(idx){
         <div class="emq-box"><div class="emq-label">IA1</div><div class="emq-val">${s.ia1_pct!=null?s.ia1_pct.toFixed(1)+'%':'—'}</div></div>
         <div class="emq-box"><div class="emq-label">IA2</div><div class="emq-val">${s.ia2_pct!=null?s.ia2_pct.toFixed(1)+'%':'—'}</div></div>
         ${(s.ia1_pct!=null&&s.ia2_pct!=null)?`<div class="emq-box"><div class="emq-label">Growth</div><div class="emq-val" style="color:${s.ia2_pct>=s.ia1_pct?'#52c788':'#e07070'}">${s.ia2_pct>=s.ia1_pct?'▲':'▼'}${Math.abs(s.ia2_pct-s.ia1_pct).toFixed(1)}%</div></div>`:''}
-        <div class="emq-box"><div class="emq-label">Week 25</div><div class="emq-val">${s.w25_pct!=null?s.w25_pct+'%':'—'}</div></div>
-        <div class="emq-box"><div class="emq-label">Week 24</div><div class="emq-val">${s.w24_pct!=null?s.w24_pct+'%':'—'}</div></div>
+        <div class="emq-box"><div class="emq-label">Week 25</div><div class="emq-val">${s.w25_pct!=null?s.w25_pct+'%':s.scores&&s.scores['W25']?Math.round(s.scores['W25'].pct)+'%':'—'}</div></div>
+        <div class="emq-box"><div class="emq-label">Week 24</div><div class="emq-val">${s.w24_pct!=null?s.w24_pct+'%':s.scores&&s.scores['W24']?Math.round(s.scores['W24'].pct)+'%':'—'}</div></div>
+        ${s.scores&&Object.keys(s.scores).filter(k=>!['IA1','IA2','W24','W25'].includes(k)).map(k=>`<div class="emq-box"><div class="emq-label">${k}</div><div class="emq-val">${Math.round(s.scores[k].pct)}%${s.scores[k].mc!=null?'<br><span style="font-size:9px;opacity:.55;">MC: '+Math.round(s.scores[k].mc)+'%</span>':''}</div></div>`).join('')}
       </div>
       ${s.momentum?`<div style="margin-top:8px"><span class="momentum-badge ${s.momentum==='Growing'?'mom-badge-grow':s.momentum==='Maintaining'?'mom-badge-maintain':'mom-badge-regress'}">${momentumIcon(s.momentum)}</span></div>`:''}
     </div>
@@ -5633,8 +5717,8 @@ const JOURNEY_MILESTONES = [
 
 function renderJourney(){
   const now = new Date();
-  const mock = new Date('2026-03-23');
-  const state = new Date('2026-04-15');
+  const mock = new Date(DATE_CFG.mockDate);
+  const state = new Date(DATE_CFG.stateDate);
   const msPerDay = 86400000;
   const mockDays  = Math.max(0, Math.ceil((mock  - now) / msPerDay));
   const stateDays = Math.max(0, Math.ceil((state - now) / msPerDay));
@@ -5648,7 +5732,7 @@ function renderJourney(){
 
   // Update "X weeks remain" subheading
   const jSubhead = document.querySelector('#journey .sec-head p');
-  if (jSubhead) jSubhead.textContent = `${weeksLeft} week${weeksLeft!==1?'s':''} remain. Every class is a step forward. Track the path from here to April 15.`;
+  if (jSubhead) jSubhead.textContent = `${weeksLeft} week${weeksLeft!==1?'s':''} remain. Every class is a step forward. Track the path from here to ${DATE_CFG.stateDateDisplay}.`;
 
   // Stat cards
   document.getElementById('jTotalChi').textContent = students.reduce((a,s)=>a+s.chi,0);
@@ -6621,6 +6705,34 @@ function importSession(file){
   reader.readAsText(file);
 }
 
+function initDateConfigUI(){
+  const cfg = loadDateConfig();
+  const md = document.getElementById('cfgMockDate');
+  const ml = document.getElementById('cfgMockLabel');
+  const sd = document.getElementById('cfgStateDate');
+  const sl = document.getElementById('cfgStateLabel');
+  if(md) md.value = cfg.mockDate;
+  if(ml) ml.value = cfg.mockDateDisplay;
+  if(sd) sd.value = cfg.stateDate;
+  if(sl) sl.value = cfg.stateDateDisplay;
+}
+
+function saveDateConfigFromUI(){
+  const mockDate  = document.getElementById('cfgMockDate')?.value  || DATE_CFG.mockDate;
+  const mockLabel = document.getElementById('cfgMockLabel')?.value || DATE_CFG.mockDateDisplay;
+  const stateDate = document.getElementById('cfgStateDate')?.value || DATE_CFG.stateDate;
+  const stateLabel= document.getElementById('cfgStateLabel')?.value|| DATE_CFG.stateDateDisplay;
+  const cfg = {
+    mockDate,  mockLabel:'Mock Exam',  mockDateDisplay: mockLabel,
+    stateDate, stateLabel:'NYS State Test', stateDateDisplay: stateLabel,
+  };
+  saveDateConfig(cfg);
+  DATE_CFG = cfg;
+  updateCountdown();
+  const st = document.getElementById('dateSaveStatus');
+  if(st){ st.textContent = '✓ Saved'; st.style.opacity='1'; setTimeout(()=>st.style.opacity='0', 2500); }
+}
+
 let _saveTimer = null;
 function autoSave(){
   clearTimeout(_saveTimer);
@@ -6695,9 +6807,16 @@ if(_loadedAt){
 
 // Countdown timer
 function updateCountdown(){
+  // Reload config in case it was updated
+  DATE_CFG = loadDateConfig();
+  // Update display labels from config
+  const _mdEl = document.getElementById('cdMockDateDisplay');
+  const _sdEl = document.getElementById('cdStateDateDisplay');
+  if(_mdEl) _mdEl.textContent = DATE_CFG.mockDateDisplay;
+  if(_sdEl) _sdEl.textContent = DATE_CFG.stateDateDisplay;
   const now = new Date();
-  const mock = new Date('2026-03-23');
-  const state = new Date('2026-04-15');
+  const mock = new Date(DATE_CFG.mockDate);
+  const state = new Date(DATE_CFG.stateDate);
   const msPerDay = 86400000;
   const mockDays = Math.max(0, Math.ceil((mock - now) / msPerDay));
   const stateDays = Math.max(0, Math.ceil((state - now) / msPerDay));
@@ -7477,8 +7596,8 @@ function renderSlides(){
 
   // ── Shared stat helpers ───────────────────────────────────────
   const now = new Date();
-  const mockDays  = Math.max(0,Math.ceil((new Date('2026-03-23')-now)/86400000));
-  const stateDays = Math.max(0,Math.ceil((new Date('2026-04-15')-now)/86400000));
+  const mockDays  = Math.max(0,Math.ceil((new Date(DATE_CFG.mockDate)-now)/86400000));
+  const stateDays = Math.max(0,Math.ceil((new Date(DATE_CFG.stateDate)-now)/86400000));
   const growing   = students.filter(s=>s.momentum==='Growing').length;
 
   // ── Slide 0: Class Overview ───────────────────────────────────
@@ -9098,9 +9217,22 @@ async function syncSheetTab(tab){
         const autoAwardLog = []; // track chi awarded from score growth
         const timeStr = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
 
+        // Build a fuzzy key lookup — handles partial name matches like "Ann" → "Ann Marie"
+        function fuzzyScoreKey(data, last, first){
+          const exact = `${last}_${first}`;
+          if(data[exact]) return data[exact];
+          // Try last_firstName (first word only)
+          const firstWord = `${last}_${first.split(' ')[0]}`;
+          if(data[firstWord]) return data[firstWord];
+          // Try matching any key that starts with last_
+          const prefix = last + '_';
+          const candidate = Object.keys(data).find(k => k.startsWith(prefix));
+          if(candidate && candidate.toLowerCase().includes(first.split(' ')[0].toLowerCase())) return data[candidate];
+          return null;
+        }
+
         students.forEach((s, si) => {
-          const key = `${s.last}_${s.first}`;
-          const scoreMap = data[key];
+          const scoreMap = fuzzyScoreKey(data, s.last, s.first);
           if(!scoreMap) return;
           if(!s.scores) s.scores = {};
 
@@ -9109,8 +9241,9 @@ async function syncSheetTab(tab){
             const oldPct = s.scores[asmt] ? Number(s.scores[asmt].pct) : null;
             const isNewAsmt = oldPct === null;
 
-            // Store the score
-            s.scores[asmt] = {pct: newPct, mc: vals.mc, crq: vals.crq};
+            // Store the score (with date for future ordering)
+            function _pn3(v){ if(v===null||v===undefined||v==='') return null; if(typeof v==='number') return v; var n=parseFloat(String(v).replace('%','')); return isNaN(n)?null:n; }
+            s.scores[asmt] = {pct: newPct, mc: _pn3(vals.mc), crq: _pn3(vals.crq), date: vals.date || null};
 
             // Auto-award chi if this is a new or improved score
             // Only award if not already awarded for this asmt (track in s._chiAwardedFor)
