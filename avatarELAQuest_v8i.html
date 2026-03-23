@@ -8937,10 +8937,10 @@ function _buildPlacard(s, forPrint){
         </div>
       </div>
       <!-- Level badge -->
-      <div style="text-align:center;background:${inkSaver?'rgba(0,0,0,.06)':'rgba(0,0,0,.45)'};border:2px solid ${lvlCol}${inkSaver?'':'55'};border-radius:12px;padding:7px 12px;flex-shrink:0;${printColorStyle}">
+      <div style="text-align:center;background:rgba(0,0,0,.45);border:2px solid ${lvlCol}55;border-radius:12px;padding:7px 12px;flex-shrink:0;${printColorStyle}">
         <div style="font-size:${f.lvlIcon}px;">${lvlIcon}</div>
         <div style="font-size:${f.lvlName}px;font-weight:900;color:${lvlCol};letter-spacing:.09em;text-transform:uppercase;margin-top:1px;${printColorStyle}">${lvlName}</div>
-        <div style="font-size:${f.lvlChi}px;font-weight:900;color:${inkSaver?cfg.accent:cfg.gold};margin-top:1px;${printColorStyle}">${s.chi} Chi</div>
+        <div style="font-size:${f.lvlChi}px;font-weight:900;color:${cfg.gold};margin-top:1px;${printColorStyle}">${s.chi} Chi</div>
         ${(()=>{ const thresholds=[0,0,75,200,400,700]; const nxt=thresholds[Math.min(liveLvl+1,5)]; const cur=thresholds[liveLvl]||0; const pct=liveLvl>=5?100:Math.round(Math.min(100,(s.chi-cur)/(nxt-cur)*100)); const toGo=liveLvl>=5?'Max!':((nxt-s.chi)+' to '+(LEVEL_NAMES[liveLvl+1]||'Avatar')); return '<div style="margin-top:4px;width:100%;background:rgba(0,0,0,.4);border-radius:3px;height:5px;overflow:hidden;'+printColorStyle+'"><div style="height:100%;width:'+pct+'%;background:'+lvlCol+';border-radius:3px;transition:width .5s;'+printColorStyle+'"></div></div><div style="font-size:'+(f.footer||8)+'px;opacity:.45;margin-top:2px;white-space:nowrap;">'+toGo+'</div>'; })()}
       </div>
     </div>
@@ -8952,8 +8952,8 @@ function _buildPlacard(s, forPrint){
         const v  = sd ? sd.pct : null;
         const isLast = i === slots.length - 1;
         const extra  = (isLast && momHtml) ? `<div style="margin-top:3px;font-size:${f.mom}px;">${momHtml}</div>` : '';
-        return `<div style="background:${inkSaver?'rgba(0,0,0,.06)':'rgba(0,0,0,.38)'};border-radius:10px;padding:7px 8px;border:1px solid ${inkSaver?'rgba(0,0,0,.15)':'rgba(255,255,255,.07)'};text-align:center;${printColorStyle}">
-          <div style="font-size:${f.scoreLabel}px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:${inkSaver?'rgba(0,0,0,.5)':'rgba(255,255,255,.42)'};margin-bottom:3px;">${slot.label}</div>
+        return `<div style="background:rgba(0,0,0,.38);border-radius:10px;padding:7px 8px;border:1px solid rgba(255,255,255,.07);text-align:center;${printColorStyle}">
+          <div style="font-size:${f.scoreLabel}px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.42);margin-bottom:3px;">${slot.label}</div>
           <div style="font-size:${f.scoreVal}px;font-weight:900;color:${scoreCol(v)};font-family:'Cinzel',serif;${printColorStyle}">${fmtPct(v)}</div>
           ${extra}
         </div>`;
@@ -8962,13 +8962,13 @@ function _buildPlacard(s, forPrint){
 
     <!-- GOALS -->
     <div style="display:flex;flex-direction:column;gap:6px;z-index:1;">
-      <div style="background:${inkSaver?'rgba(0,0,0,.04)':'rgba(0,0,0,.42)'};border-left:3px solid ${cfg.accent};border-radius:0 10px 10px 0;padding:${forPrint?'9px 12px':'7px 10px'};${printColorStyle}">
+      <div style="background:rgba(0,0,0,.42);border-left:3px solid ${cfg.accent};border-radius:0 10px 10px 0;padding:${forPrint?'9px 12px':'7px 10px'};${printColorStyle}">
         <div style="font-size:${f.goalLabel}px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:${cfg.accent};margin-bottom:3px;">⚔ Skill Goal</div>
-        <div style="font-size:${f.goalText}px;color:${inkSaver?'#222':'rgba(255,255,255,.88)'};line-height:1.45;">${skillsGoal}</div>
+        <div style="font-size:${f.goalText}px;color:rgba(255,255,255,.88);line-height:1.45;">${skillsGoal}</div>
       </div>
-      <div style="background:${inkSaver?'rgba(0,0,0,.04)':'rgba(0,0,0,.42)'};border-left:3px solid ${cfg.gold};border-radius:0 10px 10px 0;padding:${forPrint?'9px 12px':'7px 10px'};${printColorStyle}">
-        <div style="font-size:${f.goalLabel}px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:${inkSaver?cfg.accent:cfg.gold};margin-bottom:3px;">🧘 Habit Goal</div>
-        <div style="font-size:${f.goalText}px;color:${inkSaver?'#222':'rgba(255,255,255,.88)'};line-height:1.45;">${habitGoal}</div>
+      <div style="background:rgba(0,0,0,.42);border-left:3px solid ${cfg.gold};border-radius:0 10px 10px 0;padding:${forPrint?'9px 12px':'7px 10px'};${printColorStyle}">
+        <div style="font-size:${f.goalLabel}px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:${cfg.gold};margin-bottom:3px;">🧘 Habit Goal</div>
+        <div style="font-size:${f.goalText}px;color:rgba(255,255,255,.88);line-height:1.45;">${habitGoal}</div>
       </div>
     </div>
 
