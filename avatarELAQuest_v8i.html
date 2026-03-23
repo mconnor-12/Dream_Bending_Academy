@@ -2364,6 +2364,8 @@ async function loadFromSheets() {
 
     // Re-seed level cache from loaded chi so level-up detection is accurate
     students.forEach(function(s, i){ _prevLevelCache[i] = getLevel(s.chi); s.level = getLevel(s.chi); });
+    // Re-render roster if visible so new scores show immediately
+    if(document.getElementById('roster')?.classList.contains('visible')) { try { renderRoster(); } catch(e){} }
     // Sync placardSlots with any new assessment keys that came in from Sheets
     // e.g. if sheet has "Quiz W26" but slots have "W26", update to match
     (function(){
@@ -6889,10 +6891,16 @@ function ilmMatchStudent(last, first){
 
 function ilmPickAward(score, growth, student){
   if(isNaN(score)) return null;
-  if(score >= 82) return { key:'standard_mastery', label:'Standard Mastery', chi:40 };
+  // Check if student has a priority standard — if so, mastery threshold is still 82%
+  // but we label it more specifically and flag for goal mastery check
+  const hasPriority = student && student.priority_standard;
+  if(score >= 82) return { key:'standard_mastery', label: hasPriority ? 'Priority Standard Mastery 🎯' : 'Standard Mastery', chi:40 };
   if(score >= 63) return { key:'quiz_growth',       label:'Quiz Growth',       chi:25 };
   if(score >= 40) return { key:'grew_on_standard',  label:'Grew on Standard',  chi:15 };
-  if(growth !== null && growth >= 5) return { key:'quiz_growth', label:'Quiz Growth (grew ≥5pts)', chi:25 };
+  // Growth bonus: improved ≥5pts from previous score even if below 40%
+  if(growth !== null && growth >= 5)  return { key:'quiz_growth', label:'Quiz Growth (grew +'+Math.round(growth)+'pts)', chi:25 };
+  // Small growth: improved ≥2pts
+  if(growth !== null && growth >= 2)  return { key:'grew_on_standard', label:'Grew on Standard (+'+Math.round(growth)+'pts)', chi:15 };
   return null; // no award — skip by default
 }
 
@@ -7023,9 +7031,19 @@ function ilmCommit(){
       });
     if(scoreRows.length) saveScoresToSheets(asmtName, scoreRows);
   }
-  // Refresh log UI
-  if(typeof renderChiLog === 'function') renderChiLog();
-  else if(typeof updateChiLogDisplay === 'function') updateChiLogDisplay();
+  // Refresh all live UI: roster, overview, nations, chi log, goal cards, placards
+  active.forEach(p => { try { updateChiDisplay(p.matchIdx); } catch(e){} });
+  try { renderOverview(); } catch(e){}
+  try { renderChiLog(); } catch(e){}
+  ['Water','Fire','Earth'].forEach(n => { try { renderNation(n); } catch(e){}});
+  if(document.getElementById('roster')?.classList.contains('visible'))     { try { renderRoster(); } catch(e){} }
+  if(document.getElementById('goalcards')?.classList.contains('visible'))  { try { renderGoalCards(); } catch(e){} }
+  if(document.getElementById('placards')?.classList.contains('visible'))   { try { renderPlacards(); } catch(e){} }
+  if(document.getElementById('studentsheet')?.classList.contains('visible')){ 
+    const sel = document.getElementById('sheetStudentSelect');
+    if(sel && sel.value !== '') { try { loadStudentSheet(parseInt(sel.value)); } catch(e){} }
+  }
+  autoSave();
   // Show done screen
   document.getElementById('ilmStep3').style.display = 'none';
   document.getElementById('ilmStep4').style.display = '';
@@ -9077,19 +9095,97 @@ async function syncSheetTab(tab){
     if(tab === 'all' || tab === 'scores'){
       const data = await sheetsGet('getScores');
       if(data && !data.error){
-        students.forEach(s => {
+        const autoAwardLog = []; // track chi awarded from score growth
+        const timeStr = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+
+        students.forEach((s, si) => {
           const key = `${s.last}_${s.first}`;
           const scoreMap = data[key];
-          if(scoreMap){
-            if(!s.scores) s.scores = {};
-            Object.entries(scoreMap).forEach(([asmt, vals]) => {
-              s.scores[asmt] = {pct: vals.pct, mc: vals.mc, crq: vals.crq};
-            });
-          }
+          if(!scoreMap) return;
+          if(!s.scores) s.scores = {};
+
+          Object.entries(scoreMap).forEach(([asmt, vals]) => {
+            const newPct = Number(vals.pct) || 0;
+            const oldPct = s.scores[asmt] ? Number(s.scores[asmt].pct) : null;
+            const isNewAsmt = oldPct === null;
+
+            // Store the score
+            s.scores[asmt] = {pct: newPct, mc: vals.mc, crq: vals.crq};
+
+            // Auto-award chi if this is a new or improved score
+            // Only award if not already awarded for this asmt (track in s._chiAwardedFor)
+            if(!s._chiAwardedFor) s._chiAwardedFor = {};
+            if(s._chiAwardedFor[asmt]) return; // already awarded for this assessment
+
+            const growth = (oldPct !== null) ? (newPct - oldPct) : null;
+
+            // Determine award based on growth from previous score + mastery threshold
+            // Raw score alone doesn't mean growth — must compare to previous
+            let award = null;
+            const hasPriority = s.priority_standard;
+
+            if(newPct >= 82 && (isNewAsmt || growth === null || growth >= 0)){
+              // Mastery threshold — award regardless of growth direction, but only if not regressing heavily
+              award = {
+                type: 'standard_mastery',
+                label: hasPriority ? `Priority Standard Mastery 🎯 (${asmt})` : `Standard Mastery (${asmt})`,
+                chi: 40
+              };
+            } else if(growth !== null && growth >= 10){
+              // Strong growth (≥10pts) — quiz growth award
+              award = { type: 'quiz_growth', label: `Quiz Growth +${Math.round(growth)}pts (${asmt})`, chi: 25 };
+            } else if(growth !== null && growth >= 5){
+              // Solid growth (≥5pts)
+              award = { type: 'quiz_growth', label: `Quiz Growth +${Math.round(growth)}pts (${asmt})`, chi: 25 };
+            } else if(growth !== null && growth >= 2){
+              // Small but real growth (≥2pts)
+              award = { type: 'grew_on_standard', label: `Grew on Standard +${Math.round(growth)}pts (${asmt})`, chi: 15 };
+            } else if(isNewAsmt && newPct >= 63){
+              // First time taking this assessment and scored well — no prior to compare, use score
+              award = { type: 'quiz_growth', label: `Quiz Growth — first attempt (${asmt})`, chi: 25 };
+            } else if(isNewAsmt && newPct >= 40){
+              award = { type: 'grew_on_standard', label: `Grew on Standard — first attempt (${asmt})`, chi: 15 };
+            }
+
+            // Only award if score actually improved (or is brand new)
+            if(award && (isNewAsmt || (growth !== null && growth > 0))){
+              s.chi += award.chi;
+              s._chiAwardedFor[asmt] = true; // mark as awarded so re-syncing doesn't double-award
+              updateChiDisplay(si);
+              chiLog.unshift({
+                name: `${s.first} ${s.last}`,
+                amount: award.chi,
+                type: award.type,
+                time: timeStr,
+                sessionDate: todayStr(),
+                studentIdxs: [si],
+                chiType2: chiType(s),
+                chiType: chiTypeName(s),
+                autoAwarded: true
+              });
+              autoAwardLog.push(`${s.first} ${s.last}: +${award.chi} (${award.label})`);
+              if(SHEETS_ENABLED){
+                saveChiToSheets(si);
+                appendChiLogToSheets(si, award.chi, award.type, award.label);
+              }
+            }
+          });
         });
+
+        // Re-render everything that shows scores or chi
+        try { renderOverview(); } catch(e){}
+        try { renderChiLog(); } catch(e){}
+        ['Water','Fire','Earth'].forEach(n => { try { renderNation(n); } catch(e){}});
+        try { renderSlotPicker(); } catch(e){}
+        try { renderStreaks(); } catch(e){}
+        if(document.getElementById('roster')?.classList.contains('visible'))    { try { renderRoster(); } catch(e){} }
+        if(document.getElementById('goalcards')?.classList.contains('visible')) { try { renderGoalCards(); } catch(e){} }
+        if(document.getElementById('placards')?.classList.contains('visible'))  { try { renderPlacards(); } catch(e){} }
+        autoSave();
+
         if(tab === 'scores'){
-          el.textContent = `✓ Pulled scores for ${Object.keys(data).length} students — ${new Date().toLocaleTimeString()}`;
-          if(document.getElementById('roster').classList.contains('visible')) renderRoster();
+          const awarded = autoAwardLog.length;
+          el.textContent = `✓ Pulled scores for ${Object.keys(data).length} students${awarded ? ' · ' + awarded + ' auto-awarded Chi' : ''} — ${new Date().toLocaleTimeString()}`;
         }
       }
     }
