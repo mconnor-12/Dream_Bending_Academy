@@ -2575,11 +2575,33 @@ async function saveScoresToSheets(assessmentName, rows) {
 async function saveGoalToSheets(studentIdx) {
   const s = students[studentIdx];
   if (!s) return null;
-  return await sheetsPost({
+  // Send goal text to Students sheet
+  sheetsPost({
     action:'updateGoals',
     student_key:`${s.last}_${s.first}`,
     skills_goal: s.skills_goal,
-    habit_goal: s.habit_goal
+    habit_goal:  s.habit_goal
+  }).catch(e=>console.debug('updateGoals sheets error:',e));
+  // Send full mastery state to Goal_State sheet
+  return await saveGoalStateToSheets(studentIdx);
+}
+
+async function saveGoalStateToSheets(studentIdx) {
+  const s = students[studentIdx];
+  if (!s) return null;
+  const gs = ensureGoalState(studentIdx);
+  return await sheetsPost({
+    action:               'saveGoalState',
+    student_key:          `${s.last}_${s.first}`,
+    skills_mastered:      gs.skills_mastered       || false,
+    habit_mastered:       gs.habit_mastered         || false,
+    skills_mastery_date:  gs.skills_mastery_date    || '',
+    habit_mastery_date:   gs.habit_mastery_date     || '',
+    skills_mastery_source:gs.skills_mastery_source  || '',
+    habit_mastery_source: gs.habit_mastery_source   || '',
+    needs_new_goal:       gs.needs_new_goal          || false,
+    skills_override:      gs.skills_override         || '',
+    habit_override:       gs.habit_override          || ''
   });
 }
 
@@ -4239,6 +4261,24 @@ function undoChiEntry(logIdx){
   }
   chiLog[logIdx].undone = true;
   showToast('↩ Undone: ' + entry.name + ' -' + entry.amount + ' Chi');
+  // Append a correction row to Chi_Log sheet so the undo is recorded server-side
+  if(SHEETS_ENABLED && entry.amount){
+    const undoSi = Array.isArray(entry.studentIdxs) && entry.studentIdxs.length
+      ? entry.studentIdxs[0]
+      : students.findIndex(s=>`${s.first} ${s.last}`===entry.name);
+    if(undoSi >= 0){
+      sheetsPost({
+        action: 'appendChiLog',
+        student_key: `${students[undoSi].last}_${students[undoSi].first}`,
+        name:    entry.name,
+        amount:  -entry.amount,
+        type:    'undo_' + (entry.type||'award'),
+        label:   'UNDO: ' + (entry.type||'award'),
+        session_date: todayStr()
+      }).catch(e=>console.debug('chiLog undo sheets error:',e));
+      saveChiToSheets(undoSi).catch(e=>console.debug('chi undo sheets error:',e));
+    }
+  }
   renderChiLog();
   renderOverview();
 }
@@ -4529,6 +4569,8 @@ function markGoalMastered(si, goalType, source){
   gs.needs_new_goal = true;
   // Generate next steps based on current priority_standard and bending group
   gs.next_steps = generateNextSteps(si, goalType);
+  // Sync mastery state to Sheets immediately
+  if(SHEETS_ENABLED) saveGoalStateToSheets(si).catch(e=>console.debug('goalState sheets error:',e));
 }
 
 const NEXT_STEP_MAP = {
@@ -4581,6 +4623,7 @@ function autoCheckGoalMastery(si, awardType, source){
     if(profCount >= 3 && !gs.skills_mastered){
       // Three consecutive proficients → auto-flag for review but don't auto-master
       gs.approaching_mastery = true;
+      if(SHEETS_ENABLED) saveGoalStateToSheets(si).catch(e=>console.debug('goalState sheets error:',e));
     }
   }
 }
@@ -4775,10 +4818,12 @@ function bulkGoalStatus(type, status){
     } else if(status==='approaching'){
       gs[type==='skill'?'skills_mastered':'habit_mastered'] = false;
       gs[type==='skill'?'approaching_mastery':'habit_approaching'] = true;
+      if(SHEETS_ENABLED) saveGoalStateToSheets(si).catch(e=>console.debug('goalState sheets error:',e));
     } else { // inprogress — reset
       gs[type==='skill'?'skills_mastered':'habit_mastered'] = false;
       gs[type==='skill'?'approaching_mastery':'habit_approaching'] = false;
       gs[type==='skill'?'needs_new_goal':'needs_new_goal'] = false;
+      if(SHEETS_ENABLED) saveGoalStateToSheets(si).catch(e=>console.debug('goalState sheets error:',e));
     }
     names.push(students[si].first);
   });
@@ -4898,24 +4943,27 @@ function cycleGoalStatus(si, type) {
       gs.approaching_mastery = true;
       gs.skills_mastered = false;
       showToast(`🟡 ${students[si].first} → Skill Approaching`);
+      if(SHEETS_ENABLED) saveGoalStateToSheets(si).catch(e=>console.debug('goalState sheets error:',e));
     } else if (cur === 'approaching') {
-      markGoalMastered(si, 'skills', 'Goal Hub');
+      markGoalMastered(si, 'skills', 'Goal Hub'); // markGoalMastered calls saveGoalStateToSheets internally
       showToast(`🟢 ${students[si].first} → Skill Mastered!`);
     } else {
       gs.skills_mastered = false;
       gs.approaching_mastery = false;
       gs.needs_new_goal = false;
       showToast(`⬜ ${students[si].first} → Skill In Progress`);
+      if(SHEETS_ENABLED) saveGoalStateToSheets(si).catch(e=>console.debug('goalState sheets error:',e));
     }
   } else {
     const cur = gs.habit_mastered ? 'mastered' : 'inprogress';
     if (cur === 'inprogress') {
-      markGoalMastered(si, 'habit', 'Goal Hub');
+      markGoalMastered(si, 'habit', 'Goal Hub'); // markGoalMastered calls saveGoalStateToSheets internally
       showToast(`🟢 ${students[si].first} → Habit Mastered!`);
     } else {
       gs.habit_mastered = false;
       gs.needs_new_goal = false;
       showToast(`⬜ ${students[si].first} → Habit In Progress`);
+      if(SHEETS_ENABLED) saveGoalStateToSheets(si).catch(e=>console.debug('goalState sheets error:',e));
     }
   }
   if(SHEETS_ENABLED) saveGoalToSheets(si);
@@ -5069,6 +5117,7 @@ function gmUnmark(type){
   gs[type+'_mastery_source'] = '';
   gs.needs_new_goal = !gs.skills_mastered && !gs.habit_mastered ? false : gs.needs_new_goal;
   gs.next_steps = [];
+  if(SHEETS_ENABLED) saveGoalStateToSheets(goalModalSI).catch(e=>console.debug('goalState sheets error:',e));
   openGoalModal(goalModalSI);
 }
 
