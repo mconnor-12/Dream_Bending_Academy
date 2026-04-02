@@ -3171,13 +3171,35 @@ function submitETSession(){
     // Save ET session to dedicated ET_Sessions / ET_Results sheets
     const newSession = etSessionHistory[0];
     const sessionId = `${today}_${std}_${Date.now()}`;
+    // Enrich each result with full student profile so the sheet is self-contained
+    const enrichedResults = newSession.results.map(r => {
+      const s = students[r.si] || {};
+      return {
+        si:            r.si,
+        level:         r.level,
+        last:          s.last          || '',
+        first:         s.first         || '',
+        student_key:   (s.last||'') + '_' + (s.first||''),
+        homeroom:      s.homeroom      || '',
+        group:         s.group         || '',
+        iep:           s.iep           ? 'Yes' : 'No',
+        ell:           s.ell           ? 'Yes' : 'No',
+        nation:        s.nation        || '',
+        bending_group: s.bending_group || '',
+        chi_type:      s.chi_type      || '',
+        bender_level:  s.level         || '',
+        chi:           s.chi           || 0,
+        ia2_pct:       s.ia2           != null ? s.ia2 : '',
+        priority_standard: s.priority_standard || ''
+      };
+    });
     sheetsPost({
       action: 'saveET',
       session_id: sessionId,
       date: newSession.date,
       standard: newSession.standard,
       timeStr: newSession.timeStr,
-      results: newSession.results
+      results: enrichedResults
     }).catch(e => console.warn('saveET to sheets failed:', e));
     // Also persist the full extended blob (streaks, quest progress, etc.)
     saveExtendedToSheets();
