@@ -10015,673 +10015,927 @@ function downloadETCSV(){
 
 <script>
 // ══════════════════════════════════════════════════════════════════════
-//  SEATING CENTER  — full drag/drop, live tracker, heatmap, Sheets sync
+//  SEATING CENTER  — multi-view, homeroom management, live tracker, Sheets sync
 // ══════════════════════════════════════════════════════════════════════
 
-const SC_HOMEROOMS = ['Columbia','Emory','Vanderbilt'];
+// ── Persistent state keys ────────────────────────────────────────────
+const SC_STORAGE_KEY = 'avatarELA_seating_v1';
 
+// ── Core state ───────────────────────────────────────────────────────
+// scConfig.homerooms = [{id, name, studentKeys:[...]}]
+// scConfig.views[hrId] = [{viewId, viewName, columns:[{clusters:[{label, desks:[[key|null,key|null],...]}]}]}]
 // scSession[studentKey] = {dd, participation, discussion, ptLevel, log:[]}
-let scSession = {};
 
-// scLayouts[homeroom] = [ {label, clusters:[{label, desks:[[key|null, key|null], ...]}]} ]
-let scLayouts = {};
+let scConfig    = { homerooms: [], views: {} };
+let scSession   = {};
+let scActiveHrId    = null;   // current homeroom id
+let scActiveViewId  = null;   // current view id within homeroom
+let scEditMode      = false;
+let scDragName      = null;
+let scDragFrom      = null;
+let scPendingRemove = null;
+let scDetailOpenKey = null;
+let _scInited       = false;
 
-let scActiveHomeroom  = 'Columbia';
-let scEditMode        = false;
-let scDragName        = null;
-let scDragFrom        = null; // {ci, cli, ri, di}
-let scPendingRemove   = null;
-let scDetailOpenKey   = null;
-let _scInited         = false;
-
-// ── Guard: only init once, re-render on subsequent tab visits ────────
+// ── Guard ─────────────────────────────────────────────────────────────
 function scInitIfNeeded(){
-  if(!_scInited){
-    _scInited = true;
-    scInit();
-  } else {
-    scRerenderAll();
+  if(!_scInited){ _scInited = true; scInit(); }
+  else { scRerenderAll(); }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────
+function scInit(){
+  scLoadLocal();           // load saved config + sessions from localStorage
+  scSeedFromStudents();    // auto-populate homerooms from students[] .homeroom field
+  scEnsureActiveView();    // make sure active ids are valid
+  scRenderHomeroomTabs();
+  scRenderViewTabs();
+  scRenderActiveView();
+  scRenderStats();
+  if(SHEETS_ENABLED) scLoadFromSheets();
+}
+
+// ── localStorage helpers ──────────────────────────────────────────────
+function scSaveLocal(){
+  try {
+    localStorage.setItem(SC_STORAGE_KEY, JSON.stringify({
+      config: scConfig,
+      session: scSession,
+      savedAt: new Date().toISOString()
+    }));
+  } catch(e){ console.debug('scSaveLocal:', e); }
+}
+
+function scLoadLocal(){
+  try {
+    const raw = localStorage.getItem(SC_STORAGE_KEY);
+    if(!raw) return;
+    const data = JSON.parse(raw);
+    if(data.config && Array.isArray(data.config.homerooms)){
+      scConfig = data.config;
+    }
+    if(data.session) scSession = data.session;
+  } catch(e){ console.debug('scLoadLocal:', e); }
+}
+
+// ── Auto-seed homerooms from students[].homeroom ─────────────────────
+// Runs on every init — adds any NEW homerooms/students found, never removes
+function scSeedFromStudents(){
+  const hrNames = [...new Set(students.map(s=>s.homeroom).filter(Boolean))].sort();
+
+  hrNames.forEach(hrName => {
+    // Find or create homeroom
+    let hr = scConfig.homerooms.find(h=>h.name===hrName);
+    if(!hr){
+      const hrId = 'hr_' + hrName.replace(/\s+/g,'_').toLowerCase() + '_' + Date.now();
+      hr = { id: hrId, name: hrName, studentKeys: [] };
+      scConfig.homerooms.push(hr);
+      scConfig.views[hrId] = [];
+    }
+    // Add any students not yet in this homeroom
+    const hrStudents = students.filter(s=>s.homeroom===hrName);
+    hrStudents.forEach(s => {
+      const key = s.last+'_'+s.first;
+      if(!hr.studentKeys.includes(key)) hr.studentKeys.push(key);
+      if(!scSession[key]) scSession[key] = {dd:0,participation:0,discussion:0,ptLevel:null,log:[]};
+    });
+    // Create a default view if none exist
+    if(!scConfig.views[hr.id] || scConfig.views[hr.id].length === 0){
+      scConfig.views[hr.id] = [scBuildDefaultView(hr.id, 'Default Layout')];
+    }
+  });
+
+  // Ensure at least one homeroom exists
+  if(scConfig.homerooms.length === 0){
+    const hrId = 'hr_all_' + Date.now();
+    scConfig.homerooms.push({id:hrId, name:'All Students', studentKeys: students.map(s=>s.last+'_'+s.first)});
+    scConfig.views[hrId] = [scBuildDefaultView(hrId, 'Default Layout')];
+    students.forEach(s=>{
+      const key=s.last+'_'+s.first;
+      if(!scSession[key]) scSession[key]={dd:0,participation:0,discussion:0,ptLevel:null,log:[]};
+    });
   }
 }
 
-// ── Init ─────────────────────────────────────────────────────────────
-function scInit(){
-  SC_HOMEROOMS.forEach(hr => {
-    if(!scLayouts[hr]) scLayouts[hr] = scBuildDefaultLayout(hr);
-  });
-  students.forEach(s => {
-    const key = s.last + '_' + s.first;
-    if(!scSession[key]) scSession[key] = {dd:0, participation:0, discussion:0, ptLevel:null, log:[]};
-  });
-  scRenderTabs();
-  scRenderActivePanel();
-  scRenderStats();
-  if(SHEETS_ENABLED) scLoadLayoutsFromSheets();
-}
-
-// ── Build default grid from existing students[] ──────────────────────
-function scBuildDefaultLayout(homeroom){
-  const hrStudents = students.filter(s => s.homeroom === homeroom);
-  const perCol = Math.ceil(hrStudents.length / 3);
-  return [0,1,2].map(c => {
-    const chunk = hrStudents.slice(c * perCol, (c+1) * perCol);
+function scBuildDefaultView(hrId, viewName){
+  const hr = scConfig.homerooms.find(h=>h.id===hrId);
+  const keys = hr ? [...hr.studentKeys] : [];
+  const perCol = Math.ceil(keys.length / 3) || 1;
+  const columns = [0,1,2].map(c => {
+    const chunk = keys.slice(c*perCol, (c+1)*perCol);
     const clusters = [];
-    for(let i = 0; i < chunk.length; i += 4){
-      const g = chunk.slice(i, i+4);
-      const makeKey = s => (s && s.last && s.first) ? s.last+'_'+s.first : null;
+    for(let i=0; i<chunk.length; i+=4){
+      const g = chunk.slice(i,i+4);
       clusters.push({
-        label: 'Group ' + (clusters.length+1),
+        label: 'Group '+(clusters.length+1),
         desks: [
-          [makeKey(g[0]), makeKey(g[1])],
-          [makeKey(g[2]) || null, makeKey(g[3]) || null]
+          [g[0]||null, g[1]||null],
+          [g[2]||null, g[3]||null]
         ]
       });
     }
     if(!clusters.length) clusters.push({label:'Group 1', desks:[[null,null]]});
     return {clusters};
   });
+  return {
+    viewId:   'view_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    viewName: viewName || 'Layout ' + new Date().toLocaleDateString(),
+    columns
+  };
 }
 
-// ── Student display name ──────────────────────────────────────────────
-function scKeyToName(key){
-  if(!key) return '';
-  const s = students.find(s => s.last+'_'+s.first === key);
-  if(s) return s.first + ' ' + s.last;
-  // fallback: reverse the key
-  const parts = key.split('_');
-  return parts.length>=2 ? parts[1]+' '+parts[0] : key;
+function scEnsureActiveView(){
+  if(!scConfig.homerooms.length) return;
+  // Validate active homeroom
+  if(!scConfig.homerooms.find(h=>h.id===scActiveHrId)){
+    scActiveHrId = scConfig.homerooms[0].id;
+  }
+  // Validate active view
+  const views = scConfig.views[scActiveHrId] || [];
+  if(!views.find(v=>v.viewId===scActiveViewId)){
+    scActiveViewId = views.length ? views[0].viewId : null;
+  }
 }
 
-// ── Homeroom tabs ─────────────────────────────────────────────────────
-function scRenderTabs(){
+// ── Helper: get current homeroom/view objects ─────────────────────────
+function scGetActiveHr(){ return scConfig.homerooms.find(h=>h.id===scActiveHrId); }
+function scGetActiveView(){
+  const views = scConfig.views[scActiveHrId] || [];
+  return views.find(v=>v.viewId===scActiveViewId);
+}
+
+// ── Homeroom tab bar ──────────────────────────────────────────────────
+function scRenderHomeroomTabs(){
   const bar = document.getElementById('scHomeroomTabs');
   if(!bar) return;
-  bar.innerHTML = SC_HOMEROOMS.map(hr =>
-    `<button class="sc-tab-btn${hr===scActiveHomeroom?' sc-active':''}" onclick="scSwitchHomeroom('${hr}')">${hr}</button>`
-  ).join('');
+  bar.innerHTML = scConfig.homerooms.map(hr =>
+    `<button class="sc-tab-btn${hr.id===scActiveHrId?' sc-active':''}"
+      onclick="scSwitchHomeroom('${hr.id}')">${hr.name}
+      <span style="font-size:8px;opacity:.5;margin-left:3px;">(${(hr.studentKeys||[]).length})</span>
+    </button>`
+  ).join('') +
+  `<button class="sc-tab-btn" onclick="scShowManageHomerooms()"
+    style="border-color:rgba(77,184,232,.3);color:var(--tide);font-size:9px;padding:4px 8px;" title="Add or manage homerooms">⚙ Manage</button>`;
 }
 
-function scSwitchHomeroom(hr){
-  scActiveHomeroom = hr;
-  scRenderTabs();
-  scRenderActivePanel();
+function scSwitchHomeroom(hrId){
+  scActiveHrId = hrId;
+  const views = scConfig.views[hrId] || [];
+  scActiveViewId = views.length ? views[0].viewId : null;
+  scRenderHomeroomTabs();
+  scRenderViewTabs();
+  scRenderActiveView();
   scRenderStats();
+}
+
+// ── View tab bar ──────────────────────────────────────────────────────
+function scRenderViewTabs(){
+  let bar = document.getElementById('scViewTabs');
+  if(!bar){
+    // Create the view tab bar if it doesn't exist
+    const toolbar = document.getElementById('scToolbarRow2');
+    if(!toolbar) return;
+    bar = document.createElement('div');
+    bar.id = 'scViewTabs';
+    bar.style.cssText = 'display:flex;gap:5px;flex-wrap:wrap;align-items:center;padding:0 0 10px;';
+    toolbar.prepend(bar);
+  }
+  const views = scConfig.views[scActiveHrId] || [];
+  bar.innerHTML =
+    `<span style="font-size:9px;font-family:'Cinzel',serif;letter-spacing:.1em;opacity:.4;text-transform:uppercase;margin-right:4px;">Views:</span>` +
+    views.map(v =>
+      `<button class="sc-tab-btn${v.viewId===scActiveViewId?' sc-active':''}"
+        style="font-size:9px;padding:3px 9px;"
+        onclick="scSwitchView('${v.viewId}')"
+        ondblclick="scRenameViewPrompt('${v.viewId}')"
+        title="Double-click to rename">${v.viewName}</button>`
+    ).join('') +
+    `<button onclick="scAddView()" style="font-size:9px;padding:3px 9px;border-radius:5px;
+      border:1px solid rgba(124,189,82,.3);background:rgba(124,189,82,.06);
+      color:var(--stone);cursor:pointer;" title="Add a new seating view for this homeroom">+ View</button>` +
+    (views.length>1 ? `<button onclick="scDeleteView()" style="font-size:9px;padding:3px 8px;border-radius:5px;
+      border:1px solid rgba(224,112,112,.2);background:transparent;color:rgba(224,112,112,.4);cursor:pointer;"
+      title="Delete current view">✕ View</button>` : '');
+}
+
+function scSwitchView(viewId){
+  scActiveViewId = viewId;
+  scRenderViewTabs();
+  scRenderActiveView();
+}
+
+function scAddView(){
+  const hr = scGetActiveHr();
+  if(!hr) return;
+  const name = prompt('Name for new seating view:', 'Period ' + ((scConfig.views[scActiveHrId]||[]).length+1));
+  if(!name) return;
+  const newView = scBuildDefaultView(scActiveHrId, name);
+  if(!scConfig.views[scActiveHrId]) scConfig.views[scActiveHrId] = [];
+  scConfig.views[scActiveHrId].push(newView);
+  scActiveViewId = newView.viewId;
+  scSaveLocal(); scSaveToSheets();
+  scRenderViewTabs(); scRenderActiveView();
+  showToast(`✓ View "${name}" created`);
+}
+
+function scDeleteView(){
+  const views = scConfig.views[scActiveHrId] || [];
+  if(views.length <= 1){ showToast('Need at least one view per homeroom'); return; }
+  const v = scGetActiveView();
+  if(!v) return;
+  if(!confirm(`Delete view "${v.viewName}"? This cannot be undone.`)) return;
+  scConfig.views[scActiveHrId] = views.filter(x=>x.viewId!==scActiveViewId);
+  scActiveViewId = scConfig.views[scActiveHrId][0].viewId;
+  scSaveLocal(); scSaveToSheets();
+  scRenderViewTabs(); scRenderActiveView();
+  showToast('View deleted');
+}
+
+function scRenameViewPrompt(viewId){
+  const views = scConfig.views[scActiveHrId] || [];
+  const v = views.find(x=>x.viewId===viewId);
+  if(!v) return;
+  const name = prompt('Rename view:', v.viewName);
+  if(!name || name===v.viewName) return;
+  v.viewName = name;
+  scSaveLocal(); scSaveToSheets();
+  scRenderViewTabs();
+  showToast(`Renamed to "${name}"`);
+}
+
+// ── Manage homerooms modal ─────────────────────────────────────────────
+function scShowManageHomerooms(){
+  let modal = document.getElementById('scManageHrModal');
+  if(!modal){
+    modal = document.createElement('div');
+    modal.id = 'scManageHrModal';
+    modal.className = 'sc-modal sc-modal-open';
+    modal.innerHTML = `
+      <div class="sc-modal-box" style="max-width:480px;width:94%;">
+        <div class="sc-modal-title">⚙ Manage Homerooms &amp; Student Assignments</div>
+        <div id="scManageHrBody"></div>
+        <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="scAddHomeroom()" style="padding:6px 14px;border-radius:6px;background:rgba(77,184,232,.12);border:1px solid rgba(77,184,232,.3);color:var(--tide);cursor:pointer;font-size:11px;">+ Add Homeroom</button>
+          <button onclick="document.getElementById('scManageHrModal').classList.remove('sc-modal-open')"
+            style="padding:6px 14px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.4);cursor:pointer;font-size:11px;">Close</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+  }
+  modal.classList.add('sc-modal-open');
+  scRenderManageHrBody();
+}
+
+function scRenderManageHrBody(){
+  const el = document.getElementById('scManageHrBody');
+  if(!el) return;
+
+  // List all unassigned students
+  const allAssigned = new Set(scConfig.homerooms.flatMap(h=>h.studentKeys||[]));
+  const unassigned  = students.filter(s => !allAssigned.has(s.last+'_'+s.first));
+
+  el.innerHTML = scConfig.homerooms.map(hr => {
+    const hrStudents = (hr.studentKeys||[]).map(k=>{
+      const s = students.find(st=>st.last+'_'+st.first===k);
+      return s ? s.first+' '+s.last : k;
+    });
+    return `
+      <div style="background:rgba(42,37,32,.85);border:1px solid rgba(212,168,67,.12);border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <div style="font-family:'Cinzel',serif;font-size:12px;font-weight:700;color:var(--gold-l);flex:1;">${hr.name}</div>
+          <span style="font-size:9px;opacity:.45;">${(hr.studentKeys||[]).length} students</span>
+          <button onclick="scRenameHomeroom('${hr.id}')" style="font-size:9px;padding:2px 7px;border-radius:4px;border:1px solid rgba(255,255,255,.1);background:transparent;color:rgba(255,255,255,.4);cursor:pointer;">Rename</button>
+          <button onclick="scDeleteHomeroom('${hr.id}')" style="font-size:9px;padding:2px 7px;border-radius:4px;border:1px solid rgba(224,112,112,.2);background:transparent;color:rgba(224,112,112,.4);cursor:pointer;">Delete</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;min-height:20px;">
+          ${hrStudents.map((name,i) => `
+            <span style="display:inline-flex;align-items:center;gap:4px;font-size:9px;padding:2px 7px;border-radius:10px;background:rgba(212,168,67,.1);border:1px solid rgba(212,168,67,.2);color:var(--parch);">
+              ${name}
+              <button onclick="scUnassignStudent('${hr.id}','${(hr.studentKeys||[])[i]}')"
+                style="background:none;border:none;color:rgba(255,255,255,.3);cursor:pointer;font-size:9px;padding:0;line-height:1;">✕</button>
+            </span>`).join('')}
+          ${hrStudents.length===0?'<span style="font-size:9px;opacity:.3;font-style:italic;">No students assigned</span>':''}
+        </div>
+        ${unassigned.length ? `
+          <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
+            <select id="scAssignSel_${hr.id}" style="font-size:10px;padding:3px 7px;border-radius:5px;border:1px solid rgba(212,168,67,.2);background:#1a1208;color:var(--parch);flex:1;min-width:120px;">
+              <option value="">— Add student —</option>
+              ${unassigned.map(s=>`<option value="${s.last+'_'+s.first}">${s.first} ${s.last}</option>`).join('')}
+            </select>
+            <button onclick="scAssignStudent('${hr.id}')" style="font-size:9px;padding:3px 10px;border-radius:5px;border:1px solid rgba(82,199,136,.3);background:rgba(82,199,136,.08);color:#52c788;cursor:pointer;">Assign</button>
+          </div>` : '<div style="font-size:9px;opacity:.3;margin-top:4px;">All students assigned ✓</div>'}
+      </div>`;
+  }).join('') +
+  (unassigned.length ? `
+    <div style="font-size:9px;opacity:.4;margin-top:6px;">
+      ${unassigned.length} student${unassigned.length>1?'s':''} not yet assigned to any homeroom:
+      ${unassigned.map(s=>s.first+' '+s.last).join(', ')}
+    </div>` : '');
+}
+
+function scAddHomeroom(){
+  const name = prompt('New homeroom name:','');
+  if(!name) return;
+  if(scConfig.homerooms.find(h=>h.name===name)){ showToast('Homeroom already exists'); return; }
+  const hrId = 'hr_' + name.replace(/\s+/g,'_').toLowerCase() + '_' + Date.now();
+  scConfig.homerooms.push({id:hrId, name, studentKeys:[]});
+  scConfig.views[hrId] = [scBuildDefaultView(hrId, 'Default Layout')];
+  scSaveLocal(); scSaveToSheets();
+  scRenderHomeroomTabs(); scRenderManageHrBody();
+  showToast(`✓ Homeroom "${name}" created`);
+}
+
+function scRenameHomeroom(hrId){
+  const hr = scConfig.homerooms.find(h=>h.id===hrId);
+  if(!hr) return;
+  const name = prompt('Rename homeroom:', hr.name);
+  if(!name || name===hr.name) return;
+  // Also update students' homeroom field
+  (hr.studentKeys||[]).forEach(key => {
+    const s = students.find(st=>st.last+'_'+st.first===key);
+    if(s) s.homeroom = name;
+  });
+  hr.name = name;
+  scSaveLocal(); scSaveToSheets();
+  scRenderHomeroomTabs(); scRenderManageHrBody();
+  showToast(`Renamed to "${name}"`);
+}
+
+function scDeleteHomeroom(hrId){
+  const hr = scConfig.homerooms.find(h=>h.id===hrId);
+  if(!hr) return;
+  if(scConfig.homerooms.length<=1){ showToast('Need at least one homeroom'); return; }
+  if(!confirm(`Delete homeroom "${hr.name}"?\n\nStudents will be unassigned but not deleted.`)) return;
+  scConfig.homerooms = scConfig.homerooms.filter(h=>h.id!==hrId);
+  delete scConfig.views[hrId];
+  if(scActiveHrId===hrId){
+    scActiveHrId  = scConfig.homerooms[0].id;
+    scActiveViewId = (scConfig.views[scActiveHrId]||[])[0]?.viewId || null;
+  }
+  scSaveLocal(); scSaveToSheets();
+  scRenderHomeroomTabs(); scRenderViewTabs(); scRenderActiveView(); scRenderManageHrBody();
+  showToast(`Homeroom "${hr.name}" deleted`);
+}
+
+function scAssignStudent(hrId){
+  const sel = document.getElementById('scAssignSel_' + hrId);
+  const key = sel?.value;
+  if(!key){ showToast('Select a student first'); return; }
+  const hr = scConfig.homerooms.find(h=>h.id===hrId);
+  if(!hr) return;
+  if(!hr.studentKeys.includes(key)) hr.studentKeys.push(key);
+  if(!scSession[key]) scSession[key]={dd:0,participation:0,discussion:0,ptLevel:null,log:[]};
+  // Update student's homeroom field
+  const s = students.find(st=>st.last+'_'+st.first===key);
+  if(s) s.homeroom = hr.name;
+  scSaveLocal(); scSaveToSheets();
+  scRenderManageHrBody();
+  // Re-render view if this homeroom is active (student now appears in pool)
+  if(hrId===scActiveHrId){ scRenderActiveView(); scRenderStats(); }
+  showToast(`✓ ${scKeyToName(key)} assigned to ${hr.name}`);
+}
+
+function scUnassignStudent(hrId, key){
+  const hr = scConfig.homerooms.find(h=>h.id===hrId);
+  if(!hr) return;
+  hr.studentKeys = hr.studentKeys.filter(k=>k!==key);
+  // Remove from all views for this homeroom
+  (scConfig.views[hrId]||[]).forEach(v =>
+    v.columns.forEach(col => col.clusters.forEach(cl =>
+      cl.desks.forEach(row=>{ const i=row.indexOf(key); if(i>=0) row[i]=null; })
+    ))
+  );
+  scSaveLocal(); scSaveToSheets();
+  scRenderManageHrBody();
+  if(hrId===scActiveHrId){ scRenderActiveView(); scRenderStats(); }
+  showToast(`${scKeyToName(key)} unassigned from ${hr.name}`);
+}
+
+// ── Student name helper ───────────────────────────────────────────────
+function scKeyToName(key){
+  if(!key) return '';
+  const s = students.find(s=>s.last+'_'+s.first===key);
+  if(s) return s.first+' '+s.last;
+  const p = key.split('_');
+  return p.length>=2 ? p[1]+' '+p[0] : key;
 }
 
 // ── Stats bar ─────────────────────────────────────────────────────────
 function scRenderStats(){
   const el = document.getElementById('scStatsBar');
   if(!el) return;
-  const hrStudents = students.filter(s => s.homeroom === scActiveHomeroom);
+  const hr = scGetActiveHr();
+  if(!hr){ el.innerHTML=''; return; }
   let totalDD=0,totalPart=0,totalDisc=0,prof=0,appr=0,emrg=0,marked=0;
-  hrStudents.forEach(s => {
-    const sess = scSession[s.last+'_'+s.first];
-    if(!sess) return;
-    totalDD   += sess.dd||0;
-    totalPart += sess.participation||0;
-    totalDisc += sess.discussion||0;
-    if(sess.ptLevel){
-      marked++;
-      if(sess.ptLevel==='proficient')  prof++;
-      else if(sess.ptLevel==='approaching') appr++;
-      else emrg++;
-    }
+  hr.studentKeys.forEach(key=>{
+    const sess=scSession[key]; if(!sess) return;
+    totalDD   +=sess.dd||0; totalPart+=sess.participation||0; totalDisc+=sess.discussion||0;
+    if(sess.ptLevel){ marked++; if(sess.ptLevel==='proficient') prof++; else if(sess.ptLevel==='approaching') appr++; else emrg++; }
   });
-  const pct = marked ? Math.round(prof/marked*100) : 0;
-  el.innerHTML = [
-    {n:hrStudents.length,l:'Students',       c:'var(--gold-l)'},
-    {n:totalDD,          l:'Dragon Dollars 🐉', c:'var(--gold)'},
-    {n:totalPart,        l:'Participation',  c:'var(--tide)'},
-    {n:totalDisc,        l:'Discussion',     c:'var(--stone)'},
-    {n:prof,             l:'PT Proficient',  c:'#52c788'},
-    {n:appr,             l:'PT Approaching', c:'var(--gold)'},
-    {n:emrg,             l:'PT Emerging',    c:'#e07070'},
-    {n:marked?pct+'%':'—', l:'PT Rate',      c:pct>=70?'#52c788':pct>=50?'var(--gold)':'#e07070'},
-  ].map(s=>`<div class="stat-card" style="min-width:100px;">
+  const pct=marked?Math.round(prof/marked*100):0;
+  el.innerHTML=[
+    {n:hr.studentKeys.length, l:'Students',      c:'var(--gold-l)'},
+    {n:totalDD,               l:'Dragon 🐉$',    c:'var(--gold)'},
+    {n:totalPart,             l:'Participation', c:'var(--tide)'},
+    {n:totalDisc,             l:'Discussion',    c:'var(--stone)'},
+    {n:prof,                  l:'PT Proficient', c:'#52c788'},
+    {n:appr,                  l:'PT Approaching',c:'var(--gold)'},
+    {n:emrg,                  l:'PT Emerging',   c:'#e07070'},
+    {n:marked?pct+'%':'—',    l:'PT Rate',       c:pct>=70?'#52c788':pct>=50?'var(--gold)':'#e07070'},
+  ].map(s=>`<div class="stat-card" style="min-width:90px;">
     <div class="stat-num" style="color:${s.c};font-size:20px;">${s.n}</div>
     <div class="stat-lbl">${s.l}</div>
   </div>`).join('');
 }
 
 function scRerenderAll(){
-  scRenderTabs();
-  scRenderActivePanel();
-  scRenderStats();
+  scRenderHomeroomTabs(); scRenderViewTabs(); scRenderActiveView(); scRenderStats();
 }
 
-// ── Main floor-plan renderer ──────────────────────────────────────────
-function scRenderActivePanel(){
+// ── Floor-plan renderer ───────────────────────────────────────────────
+function scRenderActiveView(){
   const container = document.getElementById('scHomeroomPanels');
-  if(!container) return;
-  container.innerHTML = '';
+  if(!container){ return; }
+  container.innerHTML='';
 
-  const layout     = scLayouts[scActiveHomeroom] || [];
-  const heatMetric = document.getElementById('scHeatMetric')?.value || 'none';
+  const hr   = scGetActiveHr();
+  const view = scGetActiveView();
+  if(!hr || !view){
+    container.innerHTML='<div style="padding:30px;text-align:center;opacity:.35;font-style:italic;">Select or create a homeroom to get started.</div>';
+    return;
+  }
 
-  // Collect assigned keys
-  const assignedSet = new Set();
-  layout.forEach(col => col.clusters.forEach(cl =>
-    cl.desks.forEach(row => row.forEach(k => { if(k) assignedSet.add(k); }))
-  ));
+  const heatMetric = document.getElementById('scHeatMetric')?.value||'none';
+
+  // Which keys are placed in this view?
+  const placedSet = new Set();
+  view.columns.forEach(col=>col.clusters.forEach(cl=>cl.desks.forEach(row=>row.forEach(k=>{if(k)placedSet.add(k);}))));
 
   const wrapper = document.createElement('div');
-  wrapper.style.cssText = 'display:flex;gap:16px;align-items:flex-start;';
+  wrapper.style.cssText='display:flex;gap:14px;align-items:flex-start;';
 
-  // ── Sidebar (only in edit mode) ──
+  // ── Edit sidebar ──
   if(scEditMode){
     const sidebar = document.createElement('div');
-    sidebar.style.cssText = 'width:200px;flex-shrink:0;display:flex;flex-direction:column;gap:10px;';
-
-    const hrStudents = students.filter(s => s.homeroom === scActiveHomeroom);
-    const unassigned = hrStudents.filter(s => !assignedSet.has(s.last+'_'+s.first));
-
-    sidebar.innerHTML = `
-      <div style="background:rgba(34,28,20,.85);border:1px solid rgba(212,168,67,.15);border-radius:10px;padding:12px;"
-        id="scPool_${scActiveHomeroom}"
-        ondragover="event.preventDefault()"
-        ondrop="scDropToPool(event,'${scActiveHomeroom}')">
-        <div style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;color:var(--gold);opacity:.6;margin-bottom:8px;text-transform:uppercase;">Unassigned Pool</div>
-        <div id="scPoolInner" style="display:flex;flex-wrap:wrap;gap:4px;min-height:28px;">
-          ${unassigned.length
-            ? unassigned.map(s => scChipHTML(s.last+'_'+s.first, s.first+' '+s.last)).join('')
-            : '<span style="font-size:9px;color:rgba(255,255,255,.25);font-style:italic;">All students seated ✓</span>'}
+    sidebar.style.cssText='width:190px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;';
+    const unplaced = hr.studentKeys.filter(k=>!placedSet.has(k));
+    sidebar.innerHTML=`
+      <div style="background:rgba(34,28,20,.85);border:1px solid rgba(212,168,67,.15);border-radius:9px;padding:10px;"
+        id="scPool" ondragover="event.preventDefault()" ondrop="scDropToPool(event)">
+        <div style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;color:var(--gold);opacity:.5;margin-bottom:7px;text-transform:uppercase;">Unplaced Students</div>
+        <div id="scPoolInner" style="display:flex;flex-wrap:wrap;gap:3px;min-height:24px;">
+          ${unplaced.length
+            ? unplaced.map(k=>scChipHTML(k,scKeyToName(k))).join('')
+            : '<span style="font-size:9px;color:rgba(255,255,255,.2);font-style:italic;">All placed ✓</span>'}
         </div>
       </div>
-      <div style="background:rgba(34,28,20,.85);border:1px solid rgba(212,168,67,.15);border-radius:10px;padding:10px 12px;">
-        <div style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;color:var(--gold);opacity:.6;margin-bottom:8px;text-transform:uppercase;">Layout</div>
-        <button onclick="scAddColumn('${scActiveHomeroom}')"
-          style="width:100%;font-size:9px;padding:4px;border-radius:5px;border:1px solid rgba(212,168,67,.2);background:rgba(212,168,67,.06);color:var(--gold);cursor:pointer;">+ Add Column</button>
+      <div style="background:rgba(34,28,20,.85);border:1px solid rgba(212,168,67,.15);border-radius:9px;padding:10px;">
+        <div style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;color:var(--gold);opacity:.5;margin-bottom:7px;text-transform:uppercase;">Structure</div>
+        <button onclick="scAddColumn()" style="width:100%;font-size:9px;padding:4px;border-radius:5px;border:1px solid rgba(212,168,67,.2);background:rgba(212,168,67,.05);color:var(--gold);cursor:pointer;">+ Add Column</button>
       </div>`;
     wrapper.appendChild(sidebar);
   }
 
   // ── Floor plan ──
   const floor = document.createElement('div');
-  floor.style.cssText = 'display:flex;gap:14px;align-items:flex-start;flex:1;overflow-x:auto;padding-bottom:8px;';
+  floor.style.cssText='display:flex;gap:12px;align-items:flex-start;flex:1;overflow-x:auto;padding-bottom:8px;';
 
-  layout.forEach((col, ci) => {
+  view.columns.forEach((col,ci)=>{
     const colDiv = document.createElement('div');
-    colDiv.style.cssText = 'display:flex;flex-direction:column;gap:10px;min-width:180px;max-width:260px;flex:1;';
+    colDiv.style.cssText='display:flex;flex-direction:column;gap:8px;min-width:170px;max-width:250px;flex:1;';
 
-    col.clusters.forEach((cl, cli) => {
+    col.clusters.forEach((cl,cli)=>{
       const clDiv = document.createElement('div');
-      clDiv.className = 'sc-cluster';
+      clDiv.className='sc-cluster';
 
       // Cluster header
-      const hdrDiv = document.createElement('div');
-      hdrDiv.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;';
+      const hdr = document.createElement('div');
+      hdr.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;';
       if(scEditMode){
-        hdrDiv.innerHTML = `
+        hdr.innerHTML=`
           <input value="${cl.label||'Group '+(cli+1)}"
-            style="background:transparent;border:none;border-bottom:1px solid rgba(212,168,67,.2);
-            color:var(--gold);font-size:9px;letter-spacing:.1em;width:100px;outline:none;font-family:'Cinzel',serif;"
-            onchange="scLayouts['${scActiveHomeroom}'][${ci}].clusters[${cli}].label=this.value">
-          <div style="display:flex;gap:4px;">
-            <button onclick="scAddRow('${scActiveHomeroom}',${ci},${cli})"
-              style="font-size:8px;padding:1px 6px;border-radius:3px;border:1px solid rgba(77,184,232,.3);background:transparent;color:var(--tide);cursor:pointer;">+row</button>
-            <button onclick="scRemoveCluster('${scActiveHomeroom}',${ci},${cli})"
-              style="background:none;border:none;color:rgba(255,255,255,.2);cursor:pointer;font-size:10px;padding:0;">✕</button>
+            style="background:transparent;border:none;border-bottom:1px solid rgba(212,168,67,.18);
+            color:var(--gold);font-size:9px;letter-spacing:.08em;width:90px;outline:none;font-family:'Cinzel',serif;text-transform:uppercase;"
+            onchange="view_columns_label_update(${ci},${cli},this.value)">
+          <div style="display:flex;gap:3px;">
+            <button onclick="scAddRow(${ci},${cli})"
+              style="font-size:8px;padding:1px 5px;border-radius:3px;border:1px solid rgba(77,184,232,.25);background:transparent;color:var(--tide);cursor:pointer;">+row</button>
+            <button onclick="scRemoveCluster(${ci},${cli})"
+              style="background:none;border:none;color:rgba(255,255,255,.18);cursor:pointer;font-size:10px;padding:0;">✕</button>
           </div>`;
       } else {
-        hdrDiv.innerHTML = `<div class="sc-cluster-label">${cl.label||'Group '+(cli+1)}</div>`;
+        hdr.innerHTML=`<div class="sc-cluster-label">${cl.label||'Group '+(cli+1)}</div>`;
       }
-      clDiv.appendChild(hdrDiv);
+      clDiv.appendChild(hdr);
 
       // Desk rows
-      cl.desks.forEach((row, ri) => {
-        const rowDiv = document.createElement('div');
-        rowDiv.className = 'sc-desk-pair';
-
-        row.forEach((key, di) => {
-          const deskDiv = document.createElement('div');
-
+      cl.desks.forEach((row,ri)=>{
+        const rowDiv=document.createElement('div');
+        rowDiv.className='sc-desk-pair';
+        row.forEach((key,di)=>{
+          const deskDiv=document.createElement('div');
           if(!key){
-            // Empty desk slot
-            deskDiv.className = 'sc-desk sc-empty';
-            deskDiv.style.minHeight = '60px';
+            deskDiv.className='sc-desk sc-empty';
+            deskDiv.style.minHeight='58px';
             if(scEditMode){
-              deskDiv.style.borderStyle = 'dashed';
-              deskDiv.innerHTML = `<span style="font-size:9px;color:rgba(255,255,255,.15);user-select:none;">${di===0?'L':'R'}</span>`;
-              deskDiv.ondragover  = e => { e.preventDefault(); deskDiv.classList.add('sc-drag-over'); };
-              deskDiv.ondragleave = () => deskDiv.classList.remove('sc-drag-over');
-              deskDiv.ondrop      = e => scDropOnDesk(e, scActiveHomeroom, ci, cli, ri, di);
+              deskDiv.style.borderStyle='dashed';
+              deskDiv.innerHTML=`<span style="font-size:9px;color:rgba(255,255,255,.12);user-select:none;">${di===0?'L':'R'}</span>`;
+              deskDiv.ondragover =e=>{e.preventDefault();deskDiv.classList.add('sc-drag-over');};
+              deskDiv.ondragleave=()=>deskDiv.classList.remove('sc-drag-over');
+              deskDiv.ondrop     =e=>scDropOnDesk(e,ci,cli,ri,di);
             }
           } else {
-            // Occupied desk
-            const name = scKeyToName(key);
-            const sess = scSession[key] || {};
-            const keyE = key.replace(/\/g,'\\').replace(/'/g,"\'");
+            const name=scKeyToName(key);
+            const sess=scSession[key]||{};
+            const kE=key.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 
-            // Heatmap tint
-            let htClass = '';
-            if(heatMetric !== 'none'){
-              let val = 0;
-              if(heatMetric==='dd')            val = sess.dd||0;
-              else if(heatMetric==='participation') val = sess.participation||0;
-              else if(heatMetric==='discussion')    val = sess.discussion||0;
-              else if(heatMetric==='pt')
-                val = sess.ptLevel==='proficient'?4:sess.ptLevel==='approaching'?2:sess.ptLevel==='emerging'?1:0;
-              if(val>0){
-                if(val<=1) htClass='sc-ht-low';
-                else if(val<=3) htClass='sc-ht-mid';
-                else if(val<=6) htClass='sc-ht-high';
-                else htClass='sc-ht-great';
-              }
+            // Heatmap
+            let htClass='';
+            if(heatMetric!=='none'){
+              let val=0;
+              if(heatMetric==='dd') val=sess.dd||0;
+              else if(heatMetric==='participation') val=sess.participation||0;
+              else if(heatMetric==='discussion') val=sess.discussion||0;
+              else if(heatMetric==='pt') val=sess.ptLevel==='proficient'?4:sess.ptLevel==='approaching'?2:sess.ptLevel==='emerging'?1:0;
+              if(val>0) htClass=val<=1?'sc-ht-low':val<=3?'sc-ht-mid':val<=6?'sc-ht-high':'sc-ht-great';
             }
 
-            deskDiv.className = `sc-desk${htClass?' '+htClass:''}`;
+            deskDiv.className=`sc-desk${htClass?' '+htClass:''}`;
 
-            // Badge row
-            let badges = '';
+            let badges='';
             if(sess.dd)            badges+=`<span class="sc-metric sc-metric-dd">🐉${sess.dd}</span>`;
             if(sess.participation) badges+=`<span class="sc-metric sc-metric-part">P:${sess.participation}</span>`;
             if(sess.discussion)    badges+=`<span class="sc-metric sc-metric-disc">D:${sess.discussion}</span>`;
             if(sess.ptLevel){
-              const pc = sess.ptLevel==='proficient'?'sc-metric-prof':sess.ptLevel==='approaching'?'sc-metric-appr':'sc-metric-emrg';
-              const ps = sess.ptLevel==='proficient'?'✓P':sess.ptLevel==='approaching'?'~A':'▲E';
-              badges += `<span class="sc-metric ${pc}">${ps}</span>`;
+              const pc=sess.ptLevel==='proficient'?'sc-metric-prof':sess.ptLevel==='approaching'?'sc-metric-appr':'sc-metric-emrg';
+              const ps=sess.ptLevel==='proficient'?'✓P':sess.ptLevel==='approaching'?'~A':'▲E';
+              badges+=`<span class="sc-metric ${pc}">${ps}</span>`;
             }
 
             if(scEditMode){
-              deskDiv.innerHTML = `
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
-                  <div class="sc-desk-name" draggable="true"
-                    style="cursor:grab;flex:1;"
-                    ondragstart="scDragStart('${keyE}',${ci},${cli},${ri},${di},event)"
+              deskDiv.innerHTML=`
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+                  <div class="sc-desk-name" draggable="true" style="cursor:grab;"
+                    ondragstart="scDragStart('${kE}',${ci},${cli},${ri},${di},event)"
                     ondragend="scDragEnd(event)">${name}</div>
-                  <button class="sc-desk-del" onclick="event.stopPropagation();scClearDesk('${scActiveHomeroom}',${ci},${cli},${ri},${di})" title="Unassign">✕</button>
+                  <button class="sc-desk-del" onclick="event.stopPropagation();scClearDesk(${ci},${cli},${ri},${di})">✕</button>
                 </div>
-                <div class="sc-desk-metrics">${badges||'<span style="font-size:8px;opacity:.3;">—</span>'}</div>`;
-              deskDiv.ondragover  = e => { e.preventDefault(); deskDiv.classList.add('sc-drag-over'); };
-              deskDiv.ondragleave = () => deskDiv.classList.remove('sc-drag-over');
-              deskDiv.ondrop      = e => scDropOnDesk(e, scActiveHomeroom, ci, cli, ri, di);
+                <div class="sc-desk-metrics">${badges||'<span style="font-size:8px;opacity:.25;">—</span>'}</div>`;
+              deskDiv.ondragover =e=>{e.preventDefault();deskDiv.classList.add('sc-drag-over');};
+              deskDiv.ondragleave=()=>deskDiv.classList.remove('sc-drag-over');
+              deskDiv.ondrop     =e=>scDropOnDesk(e,ci,cli,ri,di);
             } else {
-              deskDiv.innerHTML = `
+              deskDiv.innerHTML=`
                 <div class="sc-desk-name">${name}</div>
                 <div class="sc-desk-metrics">${badges}</div>
                 <div class="sc-desk-btns">
-                  <button class="sc-db sc-db-dd"      onclick="event.stopPropagation();scLog('${keyE}','dd',1)"            title="Dragon Dollar +1">🐉+</button>
-                  <button class="sc-db sc-db-part"    onclick="event.stopPropagation();scLog('${keyE}','participation',1)" title="Participation +1">Part+</button>
-                  <button class="sc-db sc-db-disc"    onclick="event.stopPropagation();scLog('${keyE}','discussion',1)"    title="Discussion +1">Disc+</button>
-                  <button class="sc-db sc-db-pt-prof" onclick="event.stopPropagation();scSetPT('${keyE}','proficient')"   title="Proficient">✓P</button>
-                  <button class="sc-db sc-db-pt-appr" onclick="event.stopPropagation();scSetPT('${keyE}','approaching')"  title="Approaching">~A</button>
-                  <button class="sc-db sc-db-pt-emrg" onclick="event.stopPropagation();scSetPT('${keyE}','emerging')"     title="Emerging">▲E</button>
+                  <button class="sc-db sc-db-dd"      onclick="event.stopPropagation();scLog('${kE}','dd',1)">🐉+</button>
+                  <button class="sc-db sc-db-part"    onclick="event.stopPropagation();scLog('${kE}','participation',1)">Part+</button>
+                  <button class="sc-db sc-db-disc"    onclick="event.stopPropagation();scLog('${kE}','discussion',1)">Disc+</button>
+                  <button class="sc-db sc-db-pt-prof" onclick="event.stopPropagation();scSetPT('${kE}','proficient')">✓P</button>
+                  <button class="sc-db sc-db-pt-appr" onclick="event.stopPropagation();scSetPT('${kE}','approaching')">~A</button>
+                  <button class="sc-db sc-db-pt-emrg" onclick="event.stopPropagation();scSetPT('${kE}','emerging')">▲E</button>
                 </div>`;
-              deskDiv.addEventListener('click', () => scOpenDetail(key));
+              deskDiv.addEventListener('click',()=>scOpenDetail(key));
             }
           }
           rowDiv.appendChild(deskDiv);
         });
-
-        // Row-remove button in edit mode
         if(scEditMode){
-          const rb = document.createElement('button');
-          rb.textContent = '✕';
-          rb.title = 'Remove row';
-          rb.style.cssText = 'background:none;border:none;color:rgba(255,255,255,.2);cursor:pointer;font-size:9px;padding:0 2px;align-self:center;flex-shrink:0;';
-          rb.onclick = () => scRemoveRow(scActiveHomeroom, ci, cli, ri);
+          const rb=document.createElement('button');
+          rb.textContent='✕'; rb.title='Remove row';
+          rb.style.cssText='background:none;border:none;color:rgba(255,255,255,.15);cursor:pointer;font-size:9px;padding:0 2px;align-self:center;flex-shrink:0;';
+          rb.onclick=()=>scRemoveRow(ci,cli,ri);
           rowDiv.appendChild(rb);
         }
         clDiv.appendChild(rowDiv);
       });
 
-      // Add-cluster button
       if(scEditMode){
-        const acBtn = document.createElement('button');
-        acBtn.textContent = '+ cluster';
-        acBtn.style.cssText = 'width:100%;margin-top:6px;padding:3px;font-size:9px;border-radius:5px;border:1px dashed rgba(77,184,232,.25);background:transparent;color:rgba(77,184,232,.45);cursor:pointer;';
-        acBtn.onclick = () => scAddCluster(scActiveHomeroom, ci);
-        colDiv.appendChild(clDiv);
-        colDiv.appendChild(acBtn);
-      } else {
-        colDiv.appendChild(clDiv);
-      }
+        const acb=document.createElement('button');
+        acb.textContent='+ cluster'; acb.style.cssText='width:100%;margin-top:5px;padding:3px;font-size:8px;border-radius:4px;border:1px dashed rgba(77,184,232,.2);background:transparent;color:rgba(77,184,232,.4);cursor:pointer;';
+        acb.onclick=()=>scAddCluster(ci);
+        colDiv.appendChild(clDiv); colDiv.appendChild(acb);
+      } else { colDiv.appendChild(clDiv); }
     });
 
-    // Remove-column button
     if(scEditMode){
-      const rcBtn = document.createElement('button');
-      rcBtn.textContent = '✕ Remove Column';
-      rcBtn.style.cssText = 'width:100%;margin-top:4px;font-size:9px;padding:3px;border-radius:4px;border:1px solid rgba(224,112,112,.2);background:transparent;color:rgba(224,112,112,.35);cursor:pointer;';
-      rcBtn.onclick = () => scRemoveColumn(scActiveHomeroom, ci);
-      colDiv.appendChild(rcBtn);
+      const rcb=document.createElement('button');
+      rcb.textContent='✕ Column'; rcb.style.cssText='width:100%;margin-top:3px;font-size:8px;padding:2px;border-radius:4px;border:1px solid rgba(224,112,112,.18);background:transparent;color:rgba(224,112,112,.3);cursor:pointer;';
+      rcb.onclick=()=>scRemoveColumn(ci);
+      colDiv.appendChild(rcb);
     }
-
     floor.appendChild(colDiv);
   });
 
   // Front-of-room banner
-  const banner = document.createElement('div');
-  banner.innerHTML = `<div style="margin-top:14px;text-align:center;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.12em;color:var(--gold);opacity:.45;border-top:1px solid rgba(212,168,67,.12);padding-top:10px;">▼ FRONT OF ROOM</div>`;
+  const banner=document.createElement('div');
+  banner.innerHTML=`<div style="margin-top:12px;text-align:center;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.14em;color:var(--gold);opacity:.35;border-top:1px solid rgba(212,168,67,.1);padding-top:9px;">▼ FRONT OF ROOM</div>`;
   floor.appendChild(banner);
 
   wrapper.appendChild(floor);
 
   // Heatmap legend
-  if(heatMetric !== 'none'){
-    const leg = document.createElement('div');
-    leg.className = 'sc-heat-legend';
-    leg.style.marginTop = '10px';
-    leg.innerHTML = `
-      <span><span class="sc-heat-swatch" style="background:rgba(26,111,168,.45);"></span>Low</span>
-      <span><span class="sc-heat-swatch" style="background:rgba(124,189,82,.4);"></span>Mid</span>
-      <span><span class="sc-heat-swatch" style="background:rgba(212,168,67,.45);"></span>High</span>
-      <span><span class="sc-heat-swatch" style="background:rgba(82,199,136,.5);"></span>Great</span>`;
-    const outerDiv = document.createElement('div');
-    outerDiv.appendChild(wrapper);
-    outerDiv.appendChild(leg);
-    container.appendChild(outerDiv);
-    return;
+  if(heatMetric!=='none'){
+    const leg=document.createElement('div');
+    leg.className='sc-heat-legend'; leg.style.marginTop='10px';
+    leg.innerHTML=`<span><span class="sc-heat-swatch" style="background:rgba(26,111,168,.4);"></span>Low</span><span><span class="sc-heat-swatch" style="background:rgba(124,189,82,.35);"></span>Mid</span><span><span class="sc-heat-swatch" style="background:rgba(212,168,67,.4);"></span>High</span><span><span class="sc-heat-swatch" style="background:rgba(82,199,136,.45);"></span>Great</span>`;
+    const outer=document.createElement('div');
+    outer.appendChild(wrapper); outer.appendChild(leg);
+    container.appendChild(outer); return;
   }
-
   container.appendChild(wrapper);
 }
 
+// Inline label updater (called from oninput in edit mode)
+function view_columns_label_update(ci,cli,val){
+  const v=scGetActiveView(); if(!v) return;
+  if(v.columns[ci]&&v.columns[ci].clusters[cli]) v.columns[ci].clusters[cli].label=val;
+}
+
 // ── One-click log ─────────────────────────────────────────────────────
-function scLog(key, field, delta){
-  if(!scSession[key]) scSession[key] = {dd:0, participation:0, discussion:0, ptLevel:null, log:[]};
-  const sess = scSession[key];
-  sess[field] = (sess[field]||0) + delta;
-  const ts = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-  const lbl = {dd:'Dragon $', participation:'Part', discussion:'Disc'}[field]||field;
+function scLog(key,field,delta){
+  if(!scSession[key]) scSession[key]={dd:0,participation:0,discussion:0,ptLevel:null,log:[]};
+  const sess=scSession[key];
+  sess[field]=(sess[field]||0)+delta;
+  const ts=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const lbl={dd:'Dragon $',participation:'Part',discussion:'Disc'}[field]||field;
   sess.log.unshift(`${ts} — ${lbl} +${delta} → ${sess[field]}`);
   if(sess.log.length>40) sess.log.pop();
-  const name = scKeyToName(key);
-  showToast(`${name} · ${lbl} → ${sess[field]}`);
-  scRerenderAll();
-  scheduleSheetsSync();
+  showToast(`${scKeyToName(key)} · ${lbl} → ${sess[field]}`);
+  scSaveLocal(); scRerenderAll(); scheduleSheetsSync();
   scPushStudentSession(key);
-  // Refresh detail modal if open
-  if(scDetailOpenKey === key) scOpenDetail(key);
+  if(scDetailOpenKey===key) scOpenDetail(key);
 }
 
-function scSetPT(key, level){
-  if(!scSession[key]) scSession[key] = {dd:0, participation:0, discussion:0, ptLevel:null, log:[]};
-  const sess = scSession[key];
-  sess.ptLevel = (sess.ptLevel === level) ? null : level;
-  const ts = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+function scSetPT(key,level){
+  if(!scSession[key]) scSession[key]={dd:0,participation:0,discussion:0,ptLevel:null,log:[]};
+  const sess=scSession[key];
+  sess.ptLevel=(sess.ptLevel===level)?null:level;
+  const ts=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
   sess.log.unshift(`${ts} — Priority Task → ${sess.ptLevel||'cleared'}`);
-  const name = scKeyToName(key);
-  showToast(`${name} · PT → ${sess.ptLevel||'cleared'}`);
-  scRerenderAll();
-  scheduleSheetsSync();
+  showToast(`${scKeyToName(key)} · PT → ${sess.ptLevel||'cleared'}`);
+  scSaveLocal(); scRerenderAll(); scheduleSheetsSync();
   scPushStudentSession(key);
-  if(scDetailOpenKey === key) scOpenDetail(key);
+  if(scDetailOpenKey===key) scOpenDetail(key);
 }
 
-// ── Edit mode toggle ──────────────────────────────────────────────────
+// ── Edit mode ─────────────────────────────────────────────────────────
 function scToggleEditMode(){
-  scEditMode = !scEditMode;
-  const btn = document.getElementById('scEditToggle');
+  scEditMode=!scEditMode;
+  const btn=document.getElementById('scEditToggle');
   if(btn){
-    btn.style.background    = scEditMode ? 'rgba(212,168,67,.2)'   : 'transparent';
-    btn.style.borderColor   = scEditMode ? 'var(--gold)'           : 'rgba(212,168,67,.2)';
-    btn.style.color         = scEditMode ? 'var(--gold-l)'         : 'var(--mist)';
-    btn.textContent         = scEditMode ? '✓ Done Editing'        : '✏️ Edit Seats';
+    btn.style.background  =scEditMode?'rgba(212,168,67,.18)':'transparent';
+    btn.style.borderColor =scEditMode?'var(--gold)':'rgba(212,168,67,.2)';
+    btn.style.color       =scEditMode?'var(--gold-l)':'var(--mist)';
+    btn.textContent       =scEditMode?'✓ Done Editing':'✏️ Edit Seats';
   }
-  if(!scEditMode) scSaveLayoutToSheets();
-  scRenderActivePanel();
+  if(!scEditMode){ scSaveLocal(); scSaveToSheets(); }
+  scRenderActiveView();
 }
 
 // ── Drag & drop ───────────────────────────────────────────────────────
-function scChipHTML(key, displayName){
-  const kE = key.replace(/'/g,"\'");
+function scChipHTML(key,displayName){
+  const kE=key.replace(/'/g,"\\'");
   return `<div class="sc-chip" draggable="true"
     ondragstart="scDragStart('${kE}',null,null,null,null,event)"
     ondragend="scDragEnd(event)"
     title="${displayName}">${displayName}</div>`;
 }
 
-function scDragStart(key, ci, cli, ri, di, e){
-  scDragName = key;
-  scDragFrom = (ci !== null) ? {homeroom:scActiveHomeroom,ci,cli,ri,di} : null;
-  e.dataTransfer.effectAllowed = 'move';
-  if(e.currentTarget) e.currentTarget.style.opacity = '.35';
+function scDragStart(key,ci,cli,ri,di,e){
+  scDragName=key;
+  scDragFrom=(ci!==null)?{ci,cli,ri,di}:null;
+  e.dataTransfer.effectAllowed='move';
+  if(e.currentTarget) e.currentTarget.style.opacity='.35';
 }
-function scDragEnd(e){
-  if(e.currentTarget) e.currentTarget.style.opacity = '';
-  // Don't null these here — ondrop may not have fired yet
-}
+function scDragEnd(e){ if(e.currentTarget) e.currentTarget.style.opacity=''; }
 
-function scDropOnDesk(e, hr, ci, cli, ri, di){
+function scDropOnDesk(e,ci,cli,ri,di){
   e.preventDefault(); e.stopPropagation();
   if(e.currentTarget) e.currentTarget.classList.remove('sc-drag-over');
   if(!scDragName) return;
-  const dragged   = scDragName;
-  const targetKey = scLayouts[hr][ci].clusters[cli].desks[ri][di];
-  // Clear old position
-  if(scDragFrom && scDragFrom.homeroom === hr){
-    scLayouts[hr][scDragFrom.ci].clusters[scDragFrom.cli].desks[scDragFrom.ri][scDragFrom.di] = targetKey || null;
+  const v=scGetActiveView(); if(!v) return;
+  const dragged=scDragName;
+  const target=v.columns[ci].clusters[cli].desks[ri][di];
+  if(scDragFrom){
+    v.columns[scDragFrom.ci].clusters[scDragFrom.cli].desks[scDragFrom.ri][scDragFrom.di]=target||null;
   } else {
-    // From pool — remove from any existing seat
-    scLayouts[hr].forEach(col => col.clusters.forEach(cl =>
-      cl.desks.forEach(row => { const i=row.indexOf(dragged); if(i>=0) row[i]=null; })
-    ));
+    v.columns.forEach(col=>col.clusters.forEach(cl=>cl.desks.forEach(row=>{const i=row.indexOf(dragged);if(i>=0)row[i]=null;})));
   }
-  scLayouts[hr][ci].clusters[cli].desks[ri][di] = dragged;
-  scDragName = null; scDragFrom = null;
-  scRenderActivePanel();
-  scRenderStats();
-  scSaveLayoutToSheets();
+  v.columns[ci].clusters[cli].desks[ri][di]=dragged;
+  scDragName=null; scDragFrom=null;
+  scRenderActiveView(); scSaveLocal(); scSaveToSheets();
 }
 
-function scDropToPool(e, hr){
+function scDropToPool(e){
   e.preventDefault();
   if(!scDragName) return;
-  const dragged = scDragName;
-  scLayouts[hr].forEach(col => col.clusters.forEach(cl =>
-    cl.desks.forEach(row => { const i=row.indexOf(dragged); if(i>=0) row[i]=null; })
-  ));
-  scDragName = null; scDragFrom = null;
-  scRenderActivePanel();
-  scSaveLayoutToSheets();
+  const v=scGetActiveView(); if(!v) return;
+  v.columns.forEach(col=>col.clusters.forEach(cl=>cl.desks.forEach(row=>{const i=row.indexOf(scDragName);if(i>=0)row[i]=null;})));
+  scDragName=null; scDragFrom=null;
+  scRenderActiveView(); scSaveLocal(); scSaveToSheets();
 }
 
 // ── Structure mutations ───────────────────────────────────────────────
-function scClearDesk(hr,ci,cli,ri,di){
-  scLayouts[hr][ci].clusters[cli].desks[ri][di]=null;
-  scRenderActivePanel(); scSaveLayoutToSheets();
-}
-function scAddRow(hr,ci,cli){
-  scLayouts[hr][ci].clusters[cli].desks.push([null,null]);
-  scRenderActivePanel();
-}
-function scRemoveRow(hr,ci,cli,ri){
-  scLayouts[hr][ci].clusters[cli].desks.splice(ri,1);
-  if(!scLayouts[hr][ci].clusters[cli].desks.length)
-    scLayouts[hr][ci].clusters[cli].desks.push([null,null]);
-  scRenderActivePanel(); scSaveLayoutToSheets();
-}
-function scAddCluster(hr,ci){
-  scLayouts[hr][ci].clusters.push({label:'Group '+(scLayouts[hr][ci].clusters.length+1), desks:[[null,null]]});
-  scRenderActivePanel();
-}
-function scRemoveCluster(hr,ci,cli){
-  if(scLayouts[hr][ci].clusters.length<=1){ showToast('Need at least 1 cluster per column'); return; }
-  scLayouts[hr][ci].clusters.splice(cli,1);
-  scRenderActivePanel(); scSaveLayoutToSheets();
-}
-function scAddColumn(hr){
-  scLayouts[hr].push({clusters:[{label:'Group 1', desks:[[null,null],[null,null]]}]});
-  scRenderActivePanel();
-}
-function scRemoveColumn(hr,ci){
-  if(scLayouts[hr].length<=1){ showToast('Need at least 1 column'); return; }
-  scLayouts[hr].splice(ci,1);
-  scRenderActivePanel(); scSaveLayoutToSheets();
-}
+function scClearDesk(ci,cli,ri,di){ const v=scGetActiveView();if(!v)return;v.columns[ci].clusters[cli].desks[ri][di]=null;scRenderActiveView();scSaveLocal();}
+function scAddRow(ci,cli){ const v=scGetActiveView();if(!v)return;v.columns[ci].clusters[cli].desks.push([null,null]);scRenderActiveView();}
+function scRemoveRow(ci,cli,ri){ const v=scGetActiveView();if(!v)return;v.columns[ci].clusters[cli].desks.splice(ri,1);if(!v.columns[ci].clusters[cli].desks.length)v.columns[ci].clusters[cli].desks.push([null,null]);scRenderActiveView();scSaveLocal();}
+function scAddCluster(ci){ const v=scGetActiveView();if(!v)return;v.columns[ci].clusters.push({label:'Group '+(v.columns[ci].clusters.length+1),desks:[[null,null]]});scRenderActiveView();}
+function scRemoveCluster(ci,cli){ const v=scGetActiveView();if(!v)return;if(v.columns[ci].clusters.length<=1){showToast('Need at least 1 cluster');return;}v.columns[ci].clusters.splice(cli,1);scRenderActiveView();scSaveLocal();}
+function scAddColumn(){ const v=scGetActiveView();if(!v)return;v.columns.push({clusters:[{label:'Group 1',desks:[[null,null],[null,null]]}]});scRenderActiveView();}
+function scRemoveColumn(ci){ const v=scGetActiveView();if(!v)return;if(v.columns.length<=1){showToast('Need at least 1 column');return;}v.columns.splice(ci,1);scRenderActiveView();scSaveLocal();}
 
 // ── Add / Remove student ──────────────────────────────────────────────
-function scShowAddStudent(){
-  document.getElementById('scAddModal')?.classList.add('sc-modal-open');
-  document.getElementById('scNewFirst')?.focus();
-}
-function scCloseAddModal(){
-  document.getElementById('scAddModal')?.classList.remove('sc-modal-open');
-}
+function scShowAddStudent(){ document.getElementById('scAddModal')?.classList.add('sc-modal-open'); document.getElementById('scNewFirst')?.focus(); }
+function scCloseAddModal(){ document.getElementById('scAddModal')?.classList.remove('sc-modal-open'); }
 function scCommitAddStudent(){
-  const first    = (document.getElementById('scNewFirst')?.value||'').trim();
-  const last     = (document.getElementById('scNewLast')?.value||'').trim();
-  const homeroom = document.getElementById('scNewHomeroom')?.value || 'Columbia';
-  if(!first||!last){ showToast('⚠ Enter first and last name'); return; }
-  const key = last+'_'+first;
-  if(students.find(s=>s.last===last&&s.first===first)){ showToast('⚠ Student already exists'); return; }
-  students.push({first,last,homeroom,nation:'',bending_group:'',chi:0,iep:0,ell:0,chi_type:'',level:1,scores:{},priority_standard:''});
-  scSession[key] = {dd:0,participation:0,discussion:0,ptLevel:null,log:[]};
+  const first=(document.getElementById('scNewFirst')?.value||'').trim();
+  const last =(document.getElementById('scNewLast')?.value||'').trim();
+  const hrSel= document.getElementById('scNewHomeroom');
+  const hrName= hrSel?.value || (scGetActiveHr()?.name) || 'Columbia';
+  if(!first||!last){showToast('⚠ Enter first and last name');return;}
+  const key=last+'_'+first;
+  if(students.find(s=>s.last===last&&s.first===first)){showToast('⚠ Already exists');return;}
+  students.push({first,last,homeroom:hrName,nation:'',bending_group:'',chi:0,iep:0,ell:0,chi_type:'',level:1,scores:{},priority_standard:''});
+  scSession[key]={dd:0,participation:0,discussion:0,ptLevel:null,log:[]};
+  // Add to homeroom
+  let hr=scConfig.homerooms.find(h=>h.name===hrName);
+  if(!hr){
+    const hrId='hr_'+hrName.replace(/\s+/g,'_').toLowerCase()+'_'+Date.now();
+    hr={id:hrId,name:hrName,studentKeys:[]};
+    scConfig.homerooms.push(hr);
+    scConfig.views[hrId]=[scBuildDefaultView(hrId,'Default Layout')];
+  }
+  if(!hr.studentKeys.includes(key)) hr.studentKeys.push(key);
   if(document.getElementById('scNewFirst')) document.getElementById('scNewFirst').value='';
   if(document.getElementById('scNewLast'))  document.getElementById('scNewLast').value='';
   scCloseAddModal();
+  scSaveLocal(); scSaveToSheets();
   scRerenderAll();
-  if(SHEETS_ENABLED) sheetsPost({action:'saveSeatingStudent',student_key:key,first,last,homeroom,op:'add'}).catch(()=>{});
-  showToast(`✓ ${first} ${last} added to ${homeroom} — drag from pool to seat`);
+  if(SHEETS_ENABLED) sheetsPost({action:'saveSeatingStudent',student_key:key,first,last,homeroom:hrName,op:'add'}).catch(()=>{});
+  showToast(`✓ ${first} ${last} added to ${hrName}`);
 }
 
-// ── Student detail modal ──────────────────────────────────────────────
+// Populate homeroom dropdown in add-student modal with current homerooms
+function scRefreshAddModalDropdown(){
+  const sel=document.getElementById('scNewHomeroom');
+  if(!sel) return;
+  sel.innerHTML=scConfig.homerooms.map(hr=>`<option value="${hr.name}"${hr.id===scActiveHrId?' selected':''}>${hr.name}</option>`).join('');
+}
+
+// ── Detail modal ──────────────────────────────────────────────────────
 function scOpenDetail(key){
-  scDetailOpenKey = key;
-  const modal = document.getElementById('scDetailModal');
-  if(!modal) return;
-  const name = scKeyToName(key);
-  const sess = scSession[key] || {dd:0,participation:0,discussion:0,ptLevel:null,log:[]};
-  document.getElementById('scDetailName').textContent = name;
-  const ptColor = sess.ptLevel==='proficient'?'#52c788':sess.ptLevel==='approaching'?'var(--gold)':sess.ptLevel==='emerging'?'#e07070':'rgba(255,255,255,.3)';
-  const kE = key.replace(/'/g,"\'");
-  document.getElementById('scDetailBody').innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+  scDetailOpenKey=key;
+  const modal=document.getElementById('scDetailModal'); if(!modal) return;
+  const name=scKeyToName(key);
+  const sess=scSession[key]||{dd:0,participation:0,discussion:0,ptLevel:null,log:[]};
+  document.getElementById('scDetailName').textContent=name;
+  const ptColor=sess.ptLevel==='proficient'?'#52c788':sess.ptLevel==='approaching'?'var(--gold)':sess.ptLevel==='emerging'?'#e07070':'rgba(255,255,255,.3)';
+  const kE=key.replace(/'/g,"\\'");
+  document.getElementById('scDetailBody').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
       <div style="background:rgba(42,37,32,.9);border:1px solid rgba(212,168,67,.12);border-radius:8px;padding:10px;text-align:center;">
         <div style="font-size:26px;font-weight:800;color:var(--gold-l);">${sess.dd||0}</div>
-        <div style="font-size:9px;opacity:.45;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Dragon Dollars</div>
-        <div style="display:flex;gap:5px;justify-content:center;">
-          <button onclick="scLog('${kE}','dd',1)"  style="padding:3px 10px;border-radius:5px;background:rgba(212,168,67,.15);border:1px solid rgba(212,168,67,.3);color:var(--gold-l);cursor:pointer;font-size:10px;">+1</button>
-          <button onclick="scLog('${kE}','dd',5)"  style="padding:3px 10px;border-radius:5px;background:rgba(212,168,67,.15);border:1px solid rgba(212,168,67,.3);color:var(--gold-l);cursor:pointer;font-size:10px;">+5</button>
-          <button onclick="scLog('${kE}','dd',-1)" style="padding:3px 8px;border-radius:5px;background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.3);cursor:pointer;font-size:10px;">-1</button>
+        <div style="font-size:9px;opacity:.4;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Dragon 🐉$</div>
+        <div style="display:flex;gap:4px;justify-content:center;">
+          <button onclick="scLog('${kE}','dd',1)"  style="padding:3px 9px;border-radius:5px;background:rgba(212,168,67,.15);border:1px solid rgba(212,168,67,.3);color:var(--gold-l);cursor:pointer;font-size:10px;">+1</button>
+          <button onclick="scLog('${kE}','dd',5)"  style="padding:3px 9px;border-radius:5px;background:rgba(212,168,67,.15);border:1px solid rgba(212,168,67,.3);color:var(--gold-l);cursor:pointer;font-size:10px;">+5</button>
+          <button onclick="scLog('${kE}','dd',-1)" style="padding:3px 7px;border-radius:5px;background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.25);cursor:pointer;font-size:10px;">-1</button>
         </div>
       </div>
       <div style="background:rgba(42,37,32,.9);border:1px solid rgba(212,168,67,.12);border-radius:8px;padding:10px;text-align:center;">
         <div style="font-size:26px;font-weight:800;color:var(--tide);">${sess.participation||0}</div>
-        <div style="font-size:9px;opacity:.45;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Participation</div>
-        <div style="display:flex;gap:5px;justify-content:center;">
-          <button onclick="scLog('${kE}','participation',1)"  style="padding:3px 10px;border-radius:5px;background:rgba(77,184,232,.12);border:1px solid rgba(77,184,232,.3);color:var(--tide);cursor:pointer;font-size:10px;">+1</button>
-          <button onclick="scLog('${kE}','participation',-1)" style="padding:3px 8px;border-radius:5px;background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.3);cursor:pointer;font-size:10px;">-1</button>
+        <div style="font-size:9px;opacity:.4;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Participation</div>
+        <div style="display:flex;gap:4px;justify-content:center;">
+          <button onclick="scLog('${kE}','participation',1)"  style="padding:3px 9px;border-radius:5px;background:rgba(77,184,232,.12);border:1px solid rgba(77,184,232,.3);color:var(--tide);cursor:pointer;font-size:10px;">+1</button>
+          <button onclick="scLog('${kE}','participation',-1)" style="padding:3px 7px;border-radius:5px;background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.25);cursor:pointer;font-size:10px;">-1</button>
         </div>
       </div>
       <div style="background:rgba(42,37,32,.9);border:1px solid rgba(212,168,67,.12);border-radius:8px;padding:10px;text-align:center;">
         <div style="font-size:26px;font-weight:800;color:var(--stone);">${sess.discussion||0}</div>
-        <div style="font-size:9px;opacity:.45;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Discussion</div>
-        <div style="display:flex;gap:5px;justify-content:center;">
-          <button onclick="scLog('${kE}','discussion',1)"  style="padding:3px 10px;border-radius:5px;background:rgba(124,189,82,.1);border:1px solid rgba(124,189,82,.25);color:var(--stone);cursor:pointer;font-size:10px;">+1</button>
-          <button onclick="scLog('${kE}','discussion',-1)" style="padding:3px 8px;border-radius:5px;background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.3);cursor:pointer;font-size:10px;">-1</button>
+        <div style="font-size:9px;opacity:.4;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Discussion</div>
+        <div style="display:flex;gap:4px;justify-content:center;">
+          <button onclick="scLog('${kE}','discussion',1)"  style="padding:3px 9px;border-radius:5px;background:rgba(124,189,82,.1);border:1px solid rgba(124,189,82,.25);color:var(--stone);cursor:pointer;font-size:10px;">+1</button>
+          <button onclick="scLog('${kE}','discussion',-1)" style="padding:3px 7px;border-radius:5px;background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.25);cursor:pointer;font-size:10px;">-1</button>
         </div>
       </div>
       <div style="background:rgba(42,37,32,.9);border:1px solid rgba(212,168,67,.12);border-radius:8px;padding:10px;text-align:center;">
-        <div style="font-size:20px;font-weight:800;color:${ptColor};min-height:32px;line-height:1.4;">${sess.ptLevel||'—'}</div>
-        <div style="font-size:9px;opacity:.45;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Priority Task</div>
-        <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
-          <button onclick="scSetPT('${kE}','proficient')"  style="padding:2px 8px;border-radius:4px;background:rgba(82,199,136,.12);border:1px solid rgba(82,199,136,.3);color:#52c788;cursor:pointer;font-size:9px;">✓P</button>
-          <button onclick="scSetPT('${kE}','approaching')" style="padding:2px 8px;border-radius:4px;background:rgba(212,168,67,.12);border:1px solid rgba(212,168,67,.3);color:var(--gold);cursor:pointer;font-size:9px;">~A</button>
-          <button onclick="scSetPT('${kE}','emerging')"    style="padding:2px 8px;border-radius:4px;background:rgba(224,112,112,.12);border:1px solid rgba(224,112,112,.3);color:#e07070;cursor:pointer;font-size:9px;">▲E</button>
-          ${sess.ptLevel?`<button onclick="scSetPT('${kE}',null)" style="padding:2px 8px;border-radius:4px;background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.3);cursor:pointer;font-size:9px;">✕</button>`:''}
+        <div style="font-size:18px;font-weight:800;color:${ptColor};min-height:30px;line-height:1.5;">${sess.ptLevel||'—'}</div>
+        <div style="font-size:9px;opacity:.4;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Priority Task</div>
+        <div style="display:flex;gap:3px;justify-content:center;flex-wrap:wrap;">
+          <button onclick="scSetPT('${kE}','proficient')"  style="padding:2px 7px;border-radius:4px;background:rgba(82,199,136,.12);border:1px solid rgba(82,199,136,.3);color:#52c788;cursor:pointer;font-size:9px;">✓P</button>
+          <button onclick="scSetPT('${kE}','approaching')" style="padding:2px 7px;border-radius:4px;background:rgba(212,168,67,.12);border:1px solid rgba(212,168,67,.3);color:var(--gold);cursor:pointer;font-size:9px;">~A</button>
+          <button onclick="scSetPT('${kE}','emerging')"    style="padding:2px 7px;border-radius:4px;background:rgba(224,112,112,.12);border:1px solid rgba(224,112,112,.3);color:#e07070;cursor:pointer;font-size:9px;">▲E</button>
+          ${sess.ptLevel?`<button onclick="scSetPT('${kE}',null)" style="padding:2px 6px;border-radius:4px;background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.25);cursor:pointer;font-size:9px;">✕</button>`:''}
         </div>
       </div>
     </div>
-    <div style="font-size:9px;font-weight:700;letter-spacing:.1em;opacity:.35;text-transform:uppercase;margin-bottom:6px;">Activity Log</div>
-    <div style="background:rgba(0,0,0,.3);border-radius:6px;padding:8px 10px;font-size:10px;color:rgba(255,255,255,.5);max-height:120px;overflow-y:auto;line-height:1.7;">
-      ${sess.log.length ? sess.log.map(l=>`<div>${l}</div>`).join('') : '<span style="opacity:.3;font-style:italic;">No actions yet.</span>'}
+    <div style="font-size:9px;font-weight:700;letter-spacing:.1em;opacity:.3;text-transform:uppercase;margin-bottom:5px;">Activity Log</div>
+    <div style="background:rgba(0,0,0,.3);border-radius:6px;padding:7px 9px;font-size:10px;color:rgba(255,255,255,.45);max-height:110px;overflow-y:auto;line-height:1.7;">
+      ${sess.log.length?sess.log.map(l=>`<div>${l}</div>`).join(''):'<span style="opacity:.25;font-style:italic;">No actions yet.</span>'}
     </div>`;
-  const removeBtn = document.getElementById('scDetailRemoveBtn');
-  if(removeBtn) removeBtn.onclick = () => scRemoveStudent(key, name);
+  const rb=document.getElementById('scDetailRemoveBtn');
+  if(rb) rb.onclick=()=>scRemoveStudent(key,name);
   modal.classList.add('sc-modal-open');
 }
 
-function scCloseDetailModal(){
-  document.getElementById('scDetailModal')?.classList.remove('sc-modal-open');
-  scDetailOpenKey = null;
-}
+function scCloseDetailModal(){ document.getElementById('scDetailModal')?.classList.remove('sc-modal-open'); scDetailOpenKey=null; }
 
-function scRemoveStudent(key, name){
+function scRemoveStudent(key,name){
   if(scPendingRemove===key){
-    scPendingRemove = null;
+    scPendingRemove=null;
     delete scSession[key];
-    Object.values(scLayouts).forEach(layout =>
-      layout.forEach(col => col.clusters.forEach(cl =>
-        cl.desks.forEach(row=>{ const i=row.indexOf(key); if(i>=0) row[i]=null; })
-      ))
-    );
-    const si = students.findIndex(s=>s.last+'_'+s.first===key);
-    if(si>=0) students.splice(si,1);
-    scCloseDetailModal();
-    scRerenderAll();
-    if(SHEETS_ENABLED){
-      sheetsPost({action:'saveSeatingStudent',student_key:key,op:'remove'}).catch(()=>{});
-      scSaveLayoutToSheets();
-    }
-    showToast(`${name} removed from seating`);
+    // Remove from all homerooms and views
+    scConfig.homerooms.forEach(hr=>{
+      hr.studentKeys=(hr.studentKeys||[]).filter(k=>k!==key);
+      (scConfig.views[hr.id]||[]).forEach(v=>v.columns.forEach(col=>col.clusters.forEach(cl=>cl.desks.forEach(row=>{const i=row.indexOf(key);if(i>=0)row[i]=null;}))));
+    });
+    const si=students.findIndex(s=>s.last+'_'+s.first===key); if(si>=0) students.splice(si,1);
+    scCloseDetailModal(); scSaveLocal(); scSaveToSheets(); scRerenderAll();
+    if(SHEETS_ENABLED) sheetsPost({action:'saveSeatingStudent',student_key:key,op:'remove'}).catch(()=>{});
+    showToast(`${name} removed`);
   } else {
-    scPendingRemove = key;
+    scPendingRemove=key;
     showToast(`⚠ Tap Remove again to confirm removing ${name}`);
-    setTimeout(()=>{ if(scPendingRemove===key) scPendingRemove=null; }, 5000);
+    setTimeout(()=>{if(scPendingRemove===key)scPendingRemove=null;},5000);
   }
 }
 
 // ── Reset session ─────────────────────────────────────────────────────
 function scResetSession(){
-  if(!confirm('Reset all live tracker data?\n\nClears Dragon Dollars, Participation, Discussion, and Priority Task for all students in the current homeroom.\nSeating layout is preserved.')) return;
-  students.filter(s=>s.homeroom===scActiveHomeroom).forEach(s=>{
-    const k = s.last+'_'+s.first;
-    scSession[k] = {dd:0,participation:0,discussion:0,ptLevel:null,log:[]};
+  const hr=scGetActiveHr(); if(!hr) return;
+  if(!confirm(`Reset all live tracker data for ${hr.name}?\n\nClears Dragon Dollars, Participation, Discussion, and Priority Task.\nSeating layout is preserved.`)) return;
+  hr.studentKeys.forEach(key=>{
+    scSession[key]={dd:0,participation:0,discussion:0,ptLevel:null,log:[]};
   });
-  scRerenderAll();
-  showToast('↺ Session data reset for ' + scActiveHomeroom);
+  scSaveLocal(); scRerenderAll();
+  showToast('↺ Session reset for '+hr.name);
 }
 
-// ── Sheets helpers ────────────────────────────────────────────────────
-async function scSaveLayoutToSheets(){
+// ── Sheets sync ───────────────────────────────────────────────────────
+function scSaveToSheets(){
   if(!SHEETS_ENABLED) return;
-  sheetsPost({action:'saveSeatingLayout', layouts:scLayouts, savedAt:new Date().toISOString()}).catch(()=>{});
+  sheetsPost({
+    action:'saveSeatingLayout',
+    layouts: { config: scConfig, version: 2 },
+    savedAt: new Date().toISOString()
+  }).catch(()=>{});
 }
 
 async function scPushStudentSession(key){
   if(!SHEETS_ENABLED) return;
-  const sess = scSession[key];
-  if(!sess) return;
-  const s = students.find(st=>st.last+'_'+st.first===key);
+  const sess=scSession[key]; if(!sess) return;
+  const s=students.find(st=>st.last+'_'+st.first===key);
+  const hr=scConfig.homerooms.find(h=>(h.studentKeys||[]).includes(key));
   sheetsPost({
     action:'saveSeatingSession', op:'upsert',
-    student_key:key,
-    first:s?.first||'', last:s?.last||'', homeroom:s?.homeroom||'',
-    date:todayStr(),
+    student_key:key, first:s?.first||'', last:s?.last||'',
+    homeroom:hr?.name||s?.homeroom||'', date:todayStr(),
     dd:sess.dd||0, participation:sess.participation||0,
     discussion:sess.discussion||0, pt_level:sess.ptLevel||''
   }).catch(()=>{});
 }
 
-async function scLoadLayoutsFromSheets(){
+async function scLoadFromSheets(){
   try {
-    const data = await sheetsGet('getSeating');
-    if(!data||data.error) return;
+    const data=await sheetsGet('getSeating'); if(!data||data.error) return;
     if(data.layouts){
-      const parsed = typeof data.layouts==='string' ? JSON.parse(data.layouts) : data.layouts;
-      if(parsed && typeof parsed==='object') Object.assign(scLayouts, parsed);
+      const parsed=typeof data.layouts==='string'?JSON.parse(data.layouts):data.layouts;
+      // Support v2 config format
+      if(parsed?.config?.homerooms){
+        // Merge: keep new homerooms from sheets, but preserve any local-only ones
+        scConfig=parsed.config;
+        scSeedFromStudents(); // re-seed in case students changed
+        scEnsureActiveView();
+      }
     }
     if(Array.isArray(data.sessions)){
       data.sessions.forEach(row=>{
         if(!row.student_key) return;
-        const k = row.student_key;
+        const k=row.student_key;
         if(!scSession[k]) scSession[k]={dd:0,participation:0,discussion:0,ptLevel:null,log:[]};
-        const s = scSession[k];
+        const s=scSession[k];
         if(row.dd!=null) s.dd=Number(row.dd)||0;
         if(row.participation!=null) s.participation=Number(row.participation)||0;
         if(row.discussion!=null) s.discussion=Number(row.discussion)||0;
         if(row.pt_level) s.ptLevel=row.pt_level||null;
       });
     }
-    scRerenderAll();
-  } catch(e){ console.debug('scLoadLayoutsFromSheets:', e); }
+    scSaveLocal(); scRerenderAll();
+  } catch(e){ console.debug('scLoadFromSheets:',e); }
 }
 
-// Hook silent pull to refresh seating if tab is open
-const _scOrigSilentPull = typeof silentPullFromSheets !== 'undefined' ? silentPullFromSheets : null;
-// Override is handled inside the existing silentPullFromSheets via the inline check
-
+// Also add a view-tab toolbar row to the seating section on first render
+(function patchSeatToolbar(){
+  const sec=document.getElementById('seatcenter'); if(!sec) return;
+  const toolbar=sec.querySelector('[id="scHomeroomTabs"]')?.parentElement;
+  if(!toolbar) return;
+  // Insert a second row for view tabs + add-student button
+  const row2=document.createElement('div');
+  row2.id='scToolbarRow2';
+  row2.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;';
+  toolbar.parentElement.insertBefore(row2, toolbar.nextSibling);
+})();
 </script>
 </html>
