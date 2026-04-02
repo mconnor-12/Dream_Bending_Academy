@@ -2315,26 +2315,23 @@ async function sheetsPost(body) {
   if (!SHEETS_ENABLED) return null;
   const statusEl = document.getElementById('sheets-status');
   try {
-    const form = new URLSearchParams();
-    form.append('payload', JSON.stringify(body));
-
-    const r = await fetch(SHEETS_API_URL, {
-      method: 'POST',
-      body: form,
-      mode: 'cors',
-      credentials: 'omit'
-    });
+    // Google Apps Script does not support CORS preflight on POST requests,
+    // so we send all writes as GET requests with the payload in the URL.
+    // GAS doGet receives it via e.parameter.payload and routes to the same handlers.
+    const payload = encodeURIComponent(JSON.stringify(body));
+    const url = `${SHEETS_API_URL}?payload=${payload}`;
+    const r = await fetch(url, { mode: 'cors' });
 
     const data = await r.json();
     if (data && data.ok === false) {
-      console.debug('Sheets POST returned error:', data);
+      console.debug('Sheets write returned error:', data);
       if (statusEl) statusEl.textContent = '⚠ Sheet write failed';
     } else if (statusEl) {
       statusEl.textContent = `✓ Synced ${new Date().toLocaleTimeString()}`;
     }
     return data;
   } catch (e) {
-    console.debug('Sheets POST failed (sync disabled or URL unreachable):', e.message);
+    console.debug('Sheets write failed:', e.message);
     if (statusEl) statusEl.textContent = '⚠ Sheet write failed';
     return null;
   }
