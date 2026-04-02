@@ -3170,7 +3170,21 @@ function submitETSession(){
   renderETSessionLog();
   renderChiLog();
   renderOverview();
-  if(SHEETS_ENABLED) saveExtendedToSheets();
+  if(SHEETS_ENABLED){
+    // Save ET session to dedicated ET_Sessions / ET_Results sheets
+    const newSession = etSessionHistory[0];
+    const sessionId = `${today}_${std}_${Date.now()}`;
+    sheetsPost({
+      action: 'saveET',
+      session_id: sessionId,
+      date: newSession.date,
+      standard: newSession.standard,
+      timeStr: newSession.timeStr,
+      results: newSession.results
+    }).catch(e => console.warn('saveET to sheets failed:', e));
+    // Also persist the full extended blob (streaks, quest progress, etc.)
+    saveExtendedToSheets();
+  }
 
   if(autoStreakQueue.length){
     setTimeout(()=>{
