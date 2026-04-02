@@ -5363,83 +5363,6 @@ function printAllChecklists(){
     </div>`;
   }).join('');
   win.document.write(`<!DOCTYPE html><html><head><title>Quest Checklists</title><style>${styles}</style></head><body>${pages}
-<!-- ══ SEATING CENTER SECTION ══════════════════════════════════════ -->
-<section class="section" id="seatcenter">
-  <div class="sec-head">
-    <h2 class="gold">🪑 Seating Center</h2>
-    <p>Drag-and-drop seating charts per homeroom. One-click log Dragon Dollars, Participation, Discussion, and Priority Task proficiency directly from desk cards. Heatmap overlay shows class engagement at a glance. All data syncs to Sheets automatically.</p>
-  </div>
-
-  <!-- Toolbar -->
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-    <!-- Homeroom tabs -->
-    <div class="sc-tab-bar" id="scHomeroomTabs" style="padding:0;margin:0;"></div>
-    <div style="margin-left:auto;display:flex;gap:7px;flex-wrap:wrap;">
-      <!-- Heatmap metric -->
-      <select id="scHeatMetric" onchange="scRerenderAll()" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid rgba(212,168,67,.2);background:rgba(34,28,20,.9);color:var(--parch);">
-        <option value="none">No Heatmap</option>
-        <option value="dd">Dragon Dollars</option>
-        <option value="participation">Participation</option>
-        <option value="discussion">Discussion</option>
-        <option value="pt">Priority Task</option>
-      </select>
-      <!-- Edit mode toggle -->
-      <button id="scEditToggle" onclick="scToggleEditMode()" style="font-family:'Cinzel',serif;font-size:10px;padding:5px 13px;border-radius:6px;border:1px solid rgba(212,168,67,.2);background:transparent;color:var(--mist);cursor:pointer;transition:all .18s;" title="Toggle drag-and-drop seat editing">✏️ Edit Seats</button>
-      <!-- Add student -->
-      <button onclick="scShowAddStudent()" style="font-family:'Cinzel',serif;font-size:10px;padding:5px 13px;border-radius:6px;border:1px solid rgba(82,199,136,.25);background:rgba(82,199,136,.08);color:#52c788;cursor:pointer;">＋ Add Student</button>
-      <!-- Reset session -->
-      <button onclick="scResetSession()" style="font-family:'Cinzel',serif;font-size:10px;padding:5px 13px;border-radius:6px;border:1px solid rgba(255,255,255,.1);background:transparent;color:rgba(255,255,255,.35);cursor:pointer;" title="Reset today's live tracker data (keeps seating)">↺ Reset Session</button>
-    </div>
-  </div>
-
-  <!-- Stats bar -->
-  <div id="scStatsBar" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;"></div>
-
-  <!-- Homeroom panels (one per homeroom) -->
-  <div id="scHomeroomPanels"></div>
-
-  <!-- Add student modal -->
-  <div class="sc-modal" id="scAddModal">
-    <div class="sc-modal-box">
-      <div class="sc-modal-title">＋ Add Student to Seating</div>
-      <div style="display:flex;flex-direction:column;gap:10px;">
-        <div>
-          <label style="font-size:10px;opacity:.6;display:block;margin-bottom:4px;">First Name</label>
-          <input id="scNewFirst" type="text" placeholder="First" style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid rgba(212,168,67,.2);background:#1a1208;color:var(--parch);font-size:12px;">
-        </div>
-        <div>
-          <label style="font-size:10px;opacity:.6;display:block;margin-bottom:4px;">Last Name</label>
-          <input id="scNewLast" type="text" placeholder="Last" style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid rgba(212,168,67,.2);background:#1a1208;color:var(--parch);font-size:12px;">
-        </div>
-        <div>
-          <label style="font-size:10px;opacity:.6;display:block;margin-bottom:4px;">Homeroom</label>
-          <select id="scNewHomeroom" style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid rgba(212,168,67,.2);background:#1a1208;color:var(--parch);font-size:12px;">
-            <option value="Columbia">Columbia</option>
-            <option value="Emory">Emory</option>
-            <option value="Vanderbilt">Vanderbilt</option>
-          </select>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:6px;">
-          <button onclick="scCommitAddStudent()" style="flex:1;padding:8px;border-radius:7px;background:rgba(82,199,136,.15);border:1px solid rgba(82,199,136,.35);color:#52c788;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;">＋ Add</button>
-          <button onclick="scCloseAddModal()" style="padding:8px 16px;border-radius:7px;background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.4);cursor:pointer;font-size:11px;">Cancel</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Student detail modal -->
-  <div class="sc-modal" id="scDetailModal">
-    <div class="sc-modal-box" style="max-width:340px;">
-      <div class="sc-modal-title" id="scDetailName">—</div>
-      <div id="scDetailBody"></div>
-      <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">
-        <button onclick="scCloseDetailModal()" style="padding:7px 18px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.4);cursor:pointer;font-size:11px;">Close</button>
-        <button id="scDetailRemoveBtn" style="padding:7px 18px;border-radius:6px;background:rgba(224,112,112,.1);border:1px solid rgba(224,112,112,.3);color:#e07070;cursor:pointer;font-size:11px;">Remove Student</button>
-      </div>
-    </div>
-  </div>
-</section>
-
 </body></html>`);
   win.document.close();
   win.focus();
@@ -10016,6 +9939,78 @@ function downloadETCSV(){
 }
 
 </script>
+<!-- ══ SEATING CENTER SECTION ══════════════════════════════════════ -->
+<section class="section" id="seatcenter">
+  <div class="sec-head">
+    <h2 class="gold">🪑 Seating Center</h2>
+    <p>Drag-and-drop seating charts per homeroom. One-click log Dragon Dollars, Participation, Discussion, and Priority Task proficiency directly from desk cards. Heatmap overlay shows class engagement at a glance. All data syncs to Sheets automatically.</p>
+  </div>
+
+  <!-- Toolbar -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+    <div class="sc-tab-bar" id="scHomeroomTabs" style="padding:0;margin:0;"></div>
+    <div style="margin-left:auto;display:flex;gap:7px;flex-wrap:wrap;">
+      <select id="scHeatMetric" onchange="scRerenderAll()" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid rgba(212,168,67,.2);background:rgba(34,28,20,.9);color:var(--parch);">
+        <option value="none">No Heatmap</option>
+        <option value="dd">Dragon Dollars</option>
+        <option value="participation">Participation</option>
+        <option value="discussion">Discussion</option>
+        <option value="pt">Priority Task</option>
+      </select>
+      <button id="scEditToggle" onclick="scToggleEditMode()" style="font-family:'Cinzel',serif;font-size:10px;padding:5px 13px;border-radius:6px;border:1px solid rgba(212,168,67,.2);background:transparent;color:var(--mist);cursor:pointer;transition:all .18s;">✏️ Edit Seats</button>
+      <button onclick="scShowAddStudent()" style="font-family:'Cinzel',serif;font-size:10px;padding:5px 13px;border-radius:6px;border:1px solid rgba(82,199,136,.25);background:rgba(82,199,136,.08);color:#52c788;cursor:pointer;">＋ Add Student</button>
+      <button onclick="scResetSession()" style="font-family:'Cinzel',serif;font-size:10px;padding:5px 13px;border-radius:6px;border:1px solid rgba(255,255,255,.1);background:transparent;color:rgba(255,255,255,.35);cursor:pointer;">↺ Reset Session</button>
+    </div>
+  </div>
+
+  <!-- Stats bar -->
+  <div id="scStatsBar" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;"></div>
+
+  <!-- Homeroom panels -->
+  <div id="scHomeroomPanels"></div>
+
+  <!-- Add student modal -->
+  <div class="sc-modal" id="scAddModal">
+    <div class="sc-modal-box">
+      <div class="sc-modal-title">＋ Add Student to Seating</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div>
+          <label style="font-size:10px;opacity:.6;display:block;margin-bottom:4px;">First Name</label>
+          <input id="scNewFirst" type="text" placeholder="First" style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid rgba(212,168,67,.2);background:#1a1208;color:var(--parch);font-size:12px;">
+        </div>
+        <div>
+          <label style="font-size:10px;opacity:.6;display:block;margin-bottom:4px;">Last Name</label>
+          <input id="scNewLast" type="text" placeholder="Last" style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid rgba(212,168,67,.2);background:#1a1208;color:var(--parch);font-size:12px;">
+        </div>
+        <div>
+          <label style="font-size:10px;opacity:.6;display:block;margin-bottom:4px;">Homeroom</label>
+          <select id="scNewHomeroom" style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid rgba(212,168,67,.2);background:#1a1208;color:var(--parch);font-size:12px;">
+            <option value="Columbia">Columbia</option>
+            <option value="Emory">Emory</option>
+            <option value="Vanderbilt">Vanderbilt</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button onclick="scCommitAddStudent()" style="flex:1;padding:8px;border-radius:7px;background:rgba(82,199,136,.15);border:1px solid rgba(82,199,136,.35);color:#52c788;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;">＋ Add</button>
+          <button onclick="scCloseAddModal()" style="padding:8px 16px;border-radius:7px;background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.4);cursor:pointer;font-size:11px;">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Student detail modal -->
+  <div class="sc-modal" id="scDetailModal">
+    <div class="sc-modal-box" style="max-width:340px;">
+      <div class="sc-modal-title" id="scDetailName">—</div>
+      <div id="scDetailBody"></div>
+      <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">
+        <button onclick="scCloseDetailModal()" style="padding:7px 18px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.4);cursor:pointer;font-size:11px;">Close</button>
+        <button id="scDetailRemoveBtn" style="padding:7px 18px;border-radius:6px;background:rgba(224,112,112,.1);border:1px solid rgba(224,112,112,.3);color:#e07070;cursor:pointer;font-size:11px;">Remove Student</button>
+      </div>
+    </div>
+  </div>
+</section>
+
 </body>
 
 <script>
