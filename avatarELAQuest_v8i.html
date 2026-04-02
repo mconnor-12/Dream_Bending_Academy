@@ -881,6 +881,76 @@ main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14p
 .ia-growth-neg{color:#e07070;font-weight:700;}
 .ia-growth-neu{color:var(--gold);}
 
+
+/* ══ SEATING CENTER ════════════════════════════════════════════════ */
+.sc-tab-bar{display:flex;gap:6px;padding:0 0 14px;flex-wrap:wrap;}
+.sc-tab-btn{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.08em;padding:6px 16px;
+  border:1px solid rgba(212,168,67,.18);background:transparent;color:var(--mist);
+  cursor:pointer;border-radius:6px;transition:all .18s;text-transform:uppercase;}
+.sc-tab-btn:hover{color:var(--gold-l);border-color:rgba(212,168,67,.42);}
+.sc-tab-btn.sc-active{background:rgba(212,168,67,.15);color:var(--gold-l);border-color:var(--gold);font-weight:700;}
+.sc-homeroom-panel{display:none;}.sc-homeroom-panel.sc-visible{display:block;}
+.sc-grid-wrap{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;}
+.sc-floor{flex:1;min-width:280px;}
+.sc-col{display:flex;flex-direction:column;gap:12px;}
+.sc-cluster{background:rgba(34,28,20,.7);border:1px solid rgba(212,168,67,.1);border-radius:10px;padding:12px;}
+.sc-cluster-label{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.12em;color:var(--gold);opacity:.6;margin-bottom:8px;}
+.sc-desk-pair{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;}
+.sc-desk{border-radius:7px;padding:6px 8px;border:1px solid rgba(255,255,255,.08);
+  background:rgba(42,37,32,.8);cursor:pointer;transition:all .15s;min-height:64px;position:relative;}
+.sc-desk:hover{border-color:rgba(212,168,67,.35);transform:translateY(-1px);}
+.sc-desk.sc-empty{background:rgba(0,0,0,.2);border-style:dashed;border-color:rgba(255,255,255,.05);cursor:default;}
+.sc-desk.sc-empty:hover{transform:none;}
+.sc-desk.sc-drag-over{border-color:var(--gold-l);background:rgba(212,168,67,.1);}
+.sc-desk-name{font-size:11px;font-weight:700;color:var(--parch);margin-bottom:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sc-desk-metrics{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:4px;}
+.sc-metric{font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;}
+.sc-metric-dd{background:rgba(212,168,67,.2);color:var(--gold-l);}
+.sc-metric-part{background:rgba(77,184,232,.2);color:var(--tide);}
+.sc-metric-disc{background:rgba(124,189,82,.2);color:var(--stone);}
+.sc-metric-prof{background:rgba(82,199,136,.2);color:#52c788;}
+.sc-metric-appr{background:rgba(212,168,67,.2);color:var(--gold);}
+.sc-metric-emrg{background:rgba(224,112,112,.2);color:#e07070;}
+.sc-desk-btns{display:flex;gap:3px;flex-wrap:wrap;}
+.sc-db{font-size:8px;font-weight:700;padding:2px 6px;border-radius:4px;
+  cursor:pointer;transition:all .12s;border:1px solid transparent;}
+.sc-db:hover{filter:brightness(1.3);}
+.sc-db-dd{background:rgba(212,168,67,.15);color:var(--gold-l);border-color:rgba(212,168,67,.3);}
+.sc-db-part{background:rgba(77,184,232,.12);color:var(--tide);border-color:rgba(77,184,232,.3);}
+.sc-db-disc{background:rgba(124,189,82,.1);color:var(--stone);border-color:rgba(124,189,82,.25);}
+.sc-db-pt-prof{background:rgba(82,199,136,.12);color:#52c788;border-color:rgba(82,199,136,.3);}
+.sc-db-pt-appr{background:rgba(212,168,67,.12);color:var(--gold);border-color:rgba(212,168,67,.3);}
+.sc-db-pt-emrg{background:rgba(224,112,112,.12);color:#e07070;border-color:rgba(224,112,112,.3);}
+/* heatmap desk tints */
+.sc-desk.sc-ht-low{background:rgba(26,111,168,.18);}
+.sc-desk.sc-ht-mid{background:rgba(124,189,82,.15);}
+.sc-desk.sc-ht-high{background:rgba(212,168,67,.18);}
+.sc-desk.sc-ht-great{background:rgba(82,199,136,.2);}
+/* edit-mode desk overlay */
+.sc-desk.sc-edit-mode{border-color:rgba(212,168,67,.4);}
+.sc-desk-del{position:absolute;top:3px;right:4px;background:none;border:none;
+  color:rgba(255,255,255,.2);cursor:pointer;font-size:10px;line-height:1;padding:0;}
+.sc-desk-del:hover{color:#e07070;}
+/* sidebar */
+.sc-sidebar{width:220px;flex-shrink:0;}
+.sc-pool{background:rgba(34,28,20,.7);border:1px solid rgba(212,168,67,.1);border-radius:10px;padding:12px;margin-bottom:10px;}
+.sc-pool-title{font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;color:var(--gold);opacity:.6;margin-bottom:8px;}
+.sc-chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:12px;
+  font-size:10px;font-weight:600;background:rgba(42,37,32,.9);border:1px solid rgba(255,255,255,.1);
+  cursor:grab;margin:2px;color:var(--parch);}
+.sc-chip:hover{border-color:rgba(212,168,67,.3);}
+.sc-chip.sc-dragging{opacity:.4;}
+/* heatmap legend */
+.sc-heat-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:10px;opacity:.65;margin-top:8px;}
+.sc-heat-swatch{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:3px;}
+/* modal */
+.sc-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;
+  align-items:center;justify-content:center;}
+.sc-modal.sc-modal-open{display:flex;}
+.sc-modal-box{background:#1a1510;border:1px solid rgba(212,168,67,.25);border-radius:14px;
+  padding:24px 28px;max-width:400px;width:90%;max-height:90vh;overflow-y:auto;}
+.sc-modal-title{font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:var(--gold-l);margin-bottom:16px;}
 </style>
 </head>
 <body>
@@ -966,7 +1036,7 @@ main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14p
   <button class="tab" onclick="showTab('questmap')">🌍 Quest Map</button>
   <button class="tab" onclick="showTab('questrace')">🏁 Quest Race</button>
   <button class="tab" onclick="showTab('questtracker')">⚔ Quest Tracker</button>
-  <button class="tab" onclick="showTab('exitticket')">📋 Exit Tickets</button>
+  <button class="tab" onclick="showTab('exitticket')">📋 Priority Tasks</button>
   <button class="tab" onclick="showTab('journey')">🗺 Journey</button>
   <span id="sheets-status" style="margin-left:auto;font-size:11px;opacity:0.6;padding:0 10px;align-self:center;white-space:nowrap;" title="Google Sheets sync status"></span>
   <button class="tab" onclick="showTab('streaks')">🔥 Streaks</button>
@@ -981,6 +1051,7 @@ main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14p
   <button class="tab" onclick="showTab('notecatcher')">📓 Note Catcher</button>
   <button class="tab" onclick="showTab('exportcsv')">⬇ Export CSV</button>
   <button class="tab" onclick="showTab('placards')">🏮 Goal Placards</button>
+  <button class="tab" onclick="showTab('seatcenter')">🪑 Seating Center</button>
   <button class="tab" onclick="showTab('sheetsync')">🔄 Sheet Sync</button>
   <button class="tab" onclick="showTab('etexport')">📋 ET Export</button>
 </nav>
@@ -1127,7 +1198,7 @@ main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14p
           <button class="award-btn" onclick="awardChi('standard_grew',15)"><span class="ab-icon">📈</span><span class="ab-label">Grew on Standard</span><span class="ab-pts">+15 Chi</span><span class="ab-desc">Quiz improvement</span></button>
           <button class="award-btn" onclick="awardChi('quiz_growth',25)"><span class="ab-icon">📈</span><span class="ab-label">Quiz Growth</span><span class="ab-pts">+25 Chi</span><span class="ab-desc">2 in a row = +25 streak</span></button>
           <button class="award-btn" onclick="awardChi('standard_mastery',40)"><span class="ab-icon">🎓</span><span class="ab-label">Standard Mastery</span><span class="ab-pts">+40 Chi</span><span class="ab-desc">2 in a row = +40 streak</span></button>
-          <button class="award-btn" onclick="awardChi('exit_proficient',15)"><span class="ab-icon">✅</span><span class="ab-label">Exit Ticket: Proficient</span><span class="ab-pts">+15 Chi</span><span class="ab-desc">Also feeds mastery streak</span></button>
+          <button class="award-btn" onclick="awardChi('exit_proficient',15)"><span class="ab-icon">✅</span><span class="ab-label">Priority Task: Proficient</span><span class="ab-pts">+15 Chi</span><span class="ab-desc">Also feeds mastery streak</span></button>
         </div>
       </div>
 
@@ -1183,7 +1254,7 @@ main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14p
 
 <!-- ═══════════════════════════ EXIT TICKETS ═══════════════════════════ -->
 <section class="section" id="exitticket">
-  <div class="sec-head"><h2 class="gold">📋 Exit Ticket Tracker</h2><p>Record today's exit ticket standard or habit focus, then mark each student's level. Auto-awards Chi and feeds streak tracking.</p></div>
+  <div class="sec-head"><h2 class="gold">📋 Priority Task Tracker</h2><p>Record today's exit ticket standard or habit focus, then mark each student's level. Auto-awards Chi and feeds streak tracking.</p></div>
 
   <!-- Session setup -->
   <div style="background:rgba(34,28,20,.85);border:1px solid rgba(212,168,67,.2);border-radius:12px;padding:16px 20px;margin-bottom:18px;">
@@ -1226,15 +1297,24 @@ main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14p
         </select>
       </div>
       <div>
-        <label style="font-family:'Cinzel',serif;font-size:10px;letter-spacing:.12em;opacity:.6;display:block;margin-bottom:6px;">FILTER BY NATION</label>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button class="et-nf active" onclick="setETNation('all',this)">All</button>
-          <button class="et-nf" onclick="setETNation('Water',this)">🌊 Water</button>
-          <button class="et-nf" onclick="setETNation('Fire',this)">🔥 Fire</button>
-          <button class="et-nf" onclick="setETNation('Earth',this)">🪨 Earth</button>
-        </div>
+        <label style="font-family:'Cinzel',serif;font-size:10px;letter-spacing:.12em;opacity:.6;display:block;margin-bottom:6px;">TASK NAME <span style="opacity:.5;">(auto-saves to sheet)</span></label>
+        <input id="etTaskNameInput" type="text" placeholder="e.g. Context Clues — Close Read" maxlength="80"
+          style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(212,168,67,.25);background:#1a1208;color:#e8d5a0;font-size:12px;font-family:'Crimson Pro',serif;"
+          oninput="onETTaskNameInput()"
+          title="Optional descriptive name for this task — shown in the sheet alongside the standard code">
+        <div style="font-size:9px;opacity:.4;margin-top:4px;">Stored as: <span id="etTaskNamePreview">—</span></div>
       </div>
     </div>
+    <div style="margin-top:10px;">
+      <label style="font-family:'Cinzel',serif;font-size:10px;letter-spacing:.12em;opacity:.6;display:block;margin-bottom:6px;">FILTER BY NATION</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="et-nf active" onclick="setETNation('all',this)">All</button>
+        <button class="et-nf" onclick="setETNation('Water',this)">🌊 Water</button>
+        <button class="et-nf" onclick="setETNation('Fire',this)">🔥 Fire</button>
+        <button class="et-nf" onclick="setETNation('Earth',this)">🪨 Earth</button>
+      </div>
+    </div>
+  </div>
   </div>
 
   <!-- View toggle + legend row -->
@@ -1252,7 +1332,7 @@ main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14p
       <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#e07070;border-radius:2px;display:inline-block;"></span>Emerging</span>
     </div>
     <!-- Submit always visible -->
-    <button onclick="submitETSession()" style="margin-left:auto;padding:6px 16px;border-radius:8px;background:rgba(212,168,67,.2);border:1px solid var(--gold);color:var(--gold-l);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em;cursor:pointer;">⚡ SUBMIT SESSION</button>
+    <button onclick="submitETSession()" style="margin-left:auto;padding:6px 16px;border-radius:8px;background:rgba(212,168,67,.2);border:1px solid var(--gold);color:var(--gold-l);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.08em;cursor:pointer;">⚡ SUBMIT PRIORITY TASK</button>
   </div>
 
   <!-- Quick-mark row -->
@@ -1647,7 +1727,7 @@ main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14p
 
 <!-- ═══════════════════════════ GOAL HUB ═══════════════════════════ -->
 <section class="section" id="goalhub">
-  <div class="sec-head"><h2 class="gold">🎯 Goal Hub</h2><p>View, edit, and track every student's skill + habit goals. Goals auto-update when standards are mastered via exit tickets, quizzes, or tests.</p></div>
+  <div class="sec-head"><h2 class="gold">🎯 Goal Hub</h2><p>View, edit, and track every student's skill + habit goals. Goals auto-update when standards are mastered via priority tasks, quizzes, or tests.</p></div>
 
   <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
     <input class="r-search" type="text" placeholder="Search name, standard, goal text…" oninput="filterGoalHub(this.value)" id="ghSearch" style="flex:1;max-width:280px;">
@@ -2620,7 +2700,7 @@ const AWARD_TYPES = {
   standard_grew:       {label:'Grew on Standard',          icon:'📈', amount:15, category:'academic'},
   quiz_growth:         {label:'Quiz Growth',               icon:'📈', amount:25, category:'academic'},
   standard_mastery:    {label:'Standard Mastery',          icon:'🎓', amount:40, category:'academic'},
-  exit_proficient:     {label:'Exit Ticket: Proficient',   icon:'✅', amount:15, category:'academic'},
+  exit_proficient:     {label:'Priority Task: Proficient',   icon:'✅', amount:15, category:'academic'},
   // Goals
   goal_met:            {label:'Goal Met',                  icon:'🎯', amount:20, category:'goals'},
   mastered_skill:      {label:'Mastered Skill Goal',       icon:'🌟', amount:30, category:'goals'},
@@ -2637,7 +2717,7 @@ const AWARD_TYPES = {
   streak_above2:       {label:'Above & Beyond 2-Streak',   icon:'⭐🔥',amount:25,category:'auto'},
   streak_goal3:        {label:'Goal Met 3-Streak',         icon:'🎯🔥',amount:30,category:'auto'},
   streak_peer3:        {label:'Peer Help 3-Streak',        icon:'🤝🔥',amount:20,category:'auto'},
-  streak_exit2:        {label:'Exit Ticket 2-Streak',      icon:'✅🔥',amount:20,category:'auto'},
+  streak_exit2:        {label:'Priority Task 2-Streak',      icon:'✅🔥',amount:20,category:'auto'},
   streak_skill2:       {label:'Skill Goal 2-Streak',       icon:'🌟🔥',amount:35,category:'auto'},
   streak_habit2:       {label:'Habit Goal 2-Streak',       icon:'💪🔥',amount:35,category:'auto'},
   // Milestone (one-time)
@@ -3088,7 +3168,7 @@ function renderETGrid(){
   const filtered = students.filter((s,i)=> etNation==='all'||s.nation===etNation);
   const grid = document.getElementById('etGrid');
   if(!std){
-    grid.innerHTML = '<div style="opacity:.4;font-size:12px;font-style:italic;grid-column:1/-1;">Select a standard or habit above to begin marking exit tickets.</div>';
+    grid.innerHTML = '<div style="opacity:.4;font-size:12px;font-style:italic;grid-column:1/-1;">Select a standard or habit above to begin marking priority tasks.</div>';
     return;
   }
   grid.innerHTML = filtered.map(s=>{
@@ -3125,9 +3205,21 @@ function markAllET(level){
   refreshETViews();
 }
 
+// ── Priority Task name helpers ──────────────────────────────────────
+function onETTaskNameInput(){
+  const std  = document.getElementById('etStandardSelect')?.value || '—';
+  const task = document.getElementById('etTaskNameInput')?.value.trim() || '';
+  const prev = document.getElementById('etTaskNamePreview');
+  if(prev) prev.textContent = task ? std + ': ' + task : std;
+}
+function getETTaskName(){
+  return (document.getElementById('etTaskNameInput')?.value || '').trim();
+}
+
 function submitETSession(){
   const std = document.getElementById('etStandardSelect').value;
   if(!std){ showToast('Select a standard or habit first!'); return; }
+  const taskName = getETTaskName();
   const today = registerSession();
   const timeStr = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
   const results = [];
@@ -3156,7 +3248,7 @@ function submitETSession(){
       const bonuses = checkTypeStreak(si, 'exit_proficient');
       if(bonuses.length) autoStreakQueue.push({si, bonuses});
       // Check goal mastery
-      autoCheckGoalMastery(si, 'exit_proficient', 'Exit Ticket');
+      autoCheckGoalMastery(si, 'exit_proficient', 'Priority Task');
     }
     // Log non-proficient for micro-data (no Chi, but tracked)
     if(level !== 'proficient'){
@@ -3176,12 +3268,16 @@ function submitETSession(){
   });
 
   // Save to session history
-  etSessionHistory.unshift({date:today, standard:std, timeStr, results});
+  etSessionHistory.unshift({date:today, standard:std, taskName, timeStr, results});
 
   const profCount = results.filter(r=>r.level==='proficient').length;
   const apprCount = results.filter(r=>r.level==='approaching').length;
   const emrgCount = results.filter(r=>r.level==='emerging').length;
-  showToast(`📋 Exit Ticket logged — ${std}: ${profCount} Proficient · ${apprCount} Approaching · ${emrgCount} Emerging`);
+  const taskLabel = taskName ? ' — "' + taskName + '"' : '';
+  showToast(`📋 Priority Task logged — ${std}${taskLabel}: ${profCount} Proficient · ${apprCount} Approaching · ${emrgCount} Emerging`);
+  // Clear task name for next session
+  const tnEl = document.getElementById('etTaskNameInput');
+  if(tnEl){ tnEl.value = ''; onETTaskNameInput(); }
 
   // Clear selections for next session
   etSelections = {};
@@ -3220,6 +3316,7 @@ function submitETSession(){
       session_id: sessionId,
       date: newSession.date,
       standard: newSession.standard,
+      task_name: newSession.taskName || '',
       timeStr: newSession.timeStr,
       results: enrichedResults
     }).catch(e => console.warn('saveET to sheets failed:', e));
@@ -3248,9 +3345,10 @@ function renderETSessionLog(){
     const emrg = sess.results.filter(r=>r.level==='emerging').length;
     const total = sess.results.length;
     const pct = total ? Math.round(prof/total*100) : 0;
+    const taskLabel = sess.taskName ? `<span style="color:rgba(255,255,255,.55);font-size:10px;"> — ${sess.taskName}</span>` : '';
     return `<div style="background:rgba(34,28,20,.8);border:1px solid rgba(212,168,67,.1);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:14px;">
       <div style="flex:1;">
-        <div style="font-family:'Cinzel',serif;font-size:11px;color:var(--gold-l);">${sess.standard} <span style="opacity:.4;font-size:9px;">· ${sess.date} ${sess.timeStr}</span></div>
+        <div style="font-family:'Cinzel',serif;font-size:11px;color:var(--gold-l);">${sess.standard}${taskLabel} <span style="opacity:.4;font-size:9px;">· ${sess.date} ${sess.timeStr}</span></div>
         <div style="font-size:11px;margin-top:4px;">
           <span style="color:#52c788;">✅ ${prof} Proficient</span>
           <span style="opacity:.4;margin:0 6px;">·</span>
@@ -3341,6 +3439,7 @@ function showTab(id){
   if(id==='placards'){ renderSlotPicker(); renderPlacards(); }
   if(id==='sheetsync'){ initDateConfigUI(); }
   if(id==='etexport'){ initETExportTab(); }
+  if(id==='seatcenter'){ scInitIfNeeded(); }
 }
 
 // ════════════════════════════════════════════════
@@ -5263,7 +5362,85 @@ function printAllChecklists(){
       </div>
     </div>`;
   }).join('');
-  win.document.write(`<!DOCTYPE html><html><head><title>Quest Checklists</title><style>${styles}</style></head><body>${pages}</body></html>`);
+  win.document.write(`<!DOCTYPE html><html><head><title>Quest Checklists</title><style>${styles}</style></head><body>${pages}
+<!-- ══ SEATING CENTER SECTION ══════════════════════════════════════ -->
+<section class="section" id="seatcenter">
+  <div class="sec-head">
+    <h2 class="gold">🪑 Seating Center</h2>
+    <p>Drag-and-drop seating charts per homeroom. One-click log Dragon Dollars, Participation, Discussion, and Priority Task proficiency directly from desk cards. Heatmap overlay shows class engagement at a glance. All data syncs to Sheets automatically.</p>
+  </div>
+
+  <!-- Toolbar -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+    <!-- Homeroom tabs -->
+    <div class="sc-tab-bar" id="scHomeroomTabs" style="padding:0;margin:0;"></div>
+    <div style="margin-left:auto;display:flex;gap:7px;flex-wrap:wrap;">
+      <!-- Heatmap metric -->
+      <select id="scHeatMetric" onchange="scRerenderAll()" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid rgba(212,168,67,.2);background:rgba(34,28,20,.9);color:var(--parch);">
+        <option value="none">No Heatmap</option>
+        <option value="dd">Dragon Dollars</option>
+        <option value="participation">Participation</option>
+        <option value="discussion">Discussion</option>
+        <option value="pt">Priority Task</option>
+      </select>
+      <!-- Edit mode toggle -->
+      <button id="scEditToggle" onclick="scToggleEditMode()" style="font-family:'Cinzel',serif;font-size:10px;padding:5px 13px;border-radius:6px;border:1px solid rgba(212,168,67,.2);background:transparent;color:var(--mist);cursor:pointer;transition:all .18s;" title="Toggle drag-and-drop seat editing">✏️ Edit Seats</button>
+      <!-- Add student -->
+      <button onclick="scShowAddStudent()" style="font-family:'Cinzel',serif;font-size:10px;padding:5px 13px;border-radius:6px;border:1px solid rgba(82,199,136,.25);background:rgba(82,199,136,.08);color:#52c788;cursor:pointer;">＋ Add Student</button>
+      <!-- Reset session -->
+      <button onclick="scResetSession()" style="font-family:'Cinzel',serif;font-size:10px;padding:5px 13px;border-radius:6px;border:1px solid rgba(255,255,255,.1);background:transparent;color:rgba(255,255,255,.35);cursor:pointer;" title="Reset today's live tracker data (keeps seating)">↺ Reset Session</button>
+    </div>
+  </div>
+
+  <!-- Stats bar -->
+  <div id="scStatsBar" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;"></div>
+
+  <!-- Homeroom panels (one per homeroom) -->
+  <div id="scHomeroomPanels"></div>
+
+  <!-- Add student modal -->
+  <div class="sc-modal" id="scAddModal">
+    <div class="sc-modal-box">
+      <div class="sc-modal-title">＋ Add Student to Seating</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div>
+          <label style="font-size:10px;opacity:.6;display:block;margin-bottom:4px;">First Name</label>
+          <input id="scNewFirst" type="text" placeholder="First" style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid rgba(212,168,67,.2);background:#1a1208;color:var(--parch);font-size:12px;">
+        </div>
+        <div>
+          <label style="font-size:10px;opacity:.6;display:block;margin-bottom:4px;">Last Name</label>
+          <input id="scNewLast" type="text" placeholder="Last" style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid rgba(212,168,67,.2);background:#1a1208;color:var(--parch);font-size:12px;">
+        </div>
+        <div>
+          <label style="font-size:10px;opacity:.6;display:block;margin-bottom:4px;">Homeroom</label>
+          <select id="scNewHomeroom" style="width:100%;padding:7px 10px;border-radius:6px;border:1px solid rgba(212,168,67,.2);background:#1a1208;color:var(--parch);font-size:12px;">
+            <option value="Columbia">Columbia</option>
+            <option value="Emory">Emory</option>
+            <option value="Vanderbilt">Vanderbilt</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button onclick="scCommitAddStudent()" style="flex:1;padding:8px;border-radius:7px;background:rgba(82,199,136,.15);border:1px solid rgba(82,199,136,.35);color:#52c788;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;">＋ Add</button>
+          <button onclick="scCloseAddModal()" style="padding:8px 16px;border-radius:7px;background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.4);cursor:pointer;font-size:11px;">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Student detail modal -->
+  <div class="sc-modal" id="scDetailModal">
+    <div class="sc-modal-box" style="max-width:340px;">
+      <div class="sc-modal-title" id="scDetailName">—</div>
+      <div id="scDetailBody"></div>
+      <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">
+        <button onclick="scCloseDetailModal()" style="padding:7px 18px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.4);cursor:pointer;font-size:11px;">Close</button>
+        <button id="scDetailRemoveBtn" style="padding:7px 18px;border-radius:6px;background:rgba(224,112,112,.1);border:1px solid rgba(224,112,112,.3);color:#e07070;cursor:pointer;font-size:11px;">Remove Student</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+</body></html>`);
   win.document.close();
   win.focus();
   setTimeout(()=>win.print(), 400);
@@ -6840,7 +7017,101 @@ let _saveTimer = null;
 function autoSave(){
   clearTimeout(_saveTimer);
   _saveTimer = setTimeout(saveSession, 1200);
+  // Also schedule a Sheets push within 5 seconds
+  if(SHEETS_ENABLED) scheduleSheetsSync();
 }
+
+// ── AUTO-SYNC ENGINE ──────────────────────────────────────────────────────────
+// Debounced push: any state mutation triggers a full sync to Sheets within 5 sec.
+// Silent pull: every 30 sec we quietly re-pull Chi + Extended and refresh the UI.
+let _sheetsSyncTimer = null;
+let _sheetsSyncing   = false;
+
+function scheduleSheetsSync(){
+  clearTimeout(_sheetsSyncTimer);
+  _sheetsSyncTimer = setTimeout(pushAllToSheets, 5000);
+}
+
+async function pushAllToSheets(){
+  if(_sheetsSyncing) return; // don't stack up
+  _sheetsSyncing = true;
+  const statusEl = document.getElementById('sheets-status');
+  if(statusEl){ statusEl.textContent = '⬆ Saving…'; statusEl.style.opacity='1'; }
+  try {
+    // 1. Chi + streaks for every student whose chi > 0 or has streak data
+    const chiPromises = students.map((s,i) => {
+      if(s.chi > 0 || typeStreaks[i]) return saveChiToSheets(i).catch(()=>{});
+      return Promise.resolve();
+    });
+    await Promise.all(chiPromises);
+
+    // 2. Goal state for every student with non-default goal state
+    const goalPromises = students.map((s,i) => {
+      const gs = goalState[i];
+      if(!gs) return Promise.resolve();
+      if(gs.skills_mastered || gs.habit_mastered || gs.skills_override || gs.habit_override || gs.needs_new_goal){
+        return saveGoalStateToSheets(i).catch(()=>{});
+      }
+      return Promise.resolve();
+    });
+    await Promise.all(goalPromises);
+
+    // 3. Extended blob (ET sessions, quests, streaks, classSessions)
+    await saveExtendedToSheets().catch(()=>{});
+
+    if(statusEl){ statusEl.textContent = `✓ Synced ${new Date().toLocaleTimeString()}`; statusEl.style.opacity='1'; }
+  } catch(e){
+    if(statusEl){ statusEl.textContent = '⚠ Sync failed'; statusEl.style.opacity='1'; }
+    console.debug('pushAllToSheets error:', e);
+  } finally {
+    _sheetsSyncing = false;
+  }
+}
+
+async function silentPullFromSheets(){
+  if(!SHEETS_ENABLED || _sheetsSyncing) return;
+  try {
+    // Pull Chi (most likely to change across devices)
+    const chiData = await sheetsGet('getChi');
+    if(chiData && !chiData.error){
+      let changed = false;
+      students.forEach(s => {
+        const key = `${s.last}_${s.first}`;
+        const cd = chiData[key];
+        if(cd && cd.chi != null && Number(cd.chi) !== s.chi){
+          s.chi = Number(cd.chi) || 0;
+          changed = true;
+        }
+      });
+      if(changed){ try{renderOverview();}catch(e){} try{renderChiLog();}catch(e){} }
+    }
+
+    // Pull Extended (ET sessions, quests)
+    const ext = await sheetsGet('getExtended');
+    if(ext && !ext.error){
+      let extChanged = false;
+      if(Array.isArray(ext.etSessionHistory) && ext.etSessionHistory.length > etSessionHistory.length){
+        etSessionHistory.length = 0;
+        etSessionHistory.push(...ext.etSessionHistory);
+        extChanged = true;
+      }
+      if(ext.questProgress){
+        const newKeys = Object.keys(ext.questProgress).filter(k => !questProgress[k]);
+        if(newKeys.length){ Object.assign(questProgress, ext.questProgress); extChanged = true; }
+      }
+      if(extChanged){
+        try{renderETSessionLog();}catch(e){}
+        try{renderQuestTracker();}catch(e){}
+        try{renderStreaks();}catch(e){}
+      }
+    }
+  } catch(e){ console.debug('silentPullFromSheets error (non-fatal):', e); }
+}
+
+// Start the 30-second silent pull loop after initial load
+setTimeout(()=>{
+  if(SHEETS_ENABLED) setInterval(silentPullFromSheets, 30000);
+}, 8000); // wait 8s after page load before starting the loop
 
 function showSaveIndicator(msg, isError=false){
   let ind = document.getElementById('saveIndicator');
@@ -9746,4 +10017,676 @@ function downloadETCSV(){
 
 </script>
 </body>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════
+//  SEATING CENTER  — full drag/drop, live tracker, heatmap, Sheets sync
+// ══════════════════════════════════════════════════════════════════════
+
+const SC_HOMEROOMS = ['Columbia','Emory','Vanderbilt'];
+
+// scSession[studentKey] = {dd, participation, discussion, ptLevel, log:[]}
+let scSession = {};
+
+// scLayouts[homeroom] = [ {label, clusters:[{label, desks:[[key|null, key|null], ...]}]} ]
+let scLayouts = {};
+
+let scActiveHomeroom  = 'Columbia';
+let scEditMode        = false;
+let scDragName        = null;
+let scDragFrom        = null; // {ci, cli, ri, di}
+let scPendingRemove   = null;
+let scDetailOpenKey   = null;
+let _scInited         = false;
+
+// ── Guard: only init once, re-render on subsequent tab visits ────────
+function scInitIfNeeded(){
+  if(!_scInited){
+    _scInited = true;
+    scInit();
+  } else {
+    scRerenderAll();
+  }
+}
+
+// ── Init ─────────────────────────────────────────────────────────────
+function scInit(){
+  SC_HOMEROOMS.forEach(hr => {
+    if(!scLayouts[hr]) scLayouts[hr] = scBuildDefaultLayout(hr);
+  });
+  students.forEach(s => {
+    const key = s.last + '_' + s.first;
+    if(!scSession[key]) scSession[key] = {dd:0, participation:0, discussion:0, ptLevel:null, log:[]};
+  });
+  scRenderTabs();
+  scRenderActivePanel();
+  scRenderStats();
+  if(SHEETS_ENABLED) scLoadLayoutsFromSheets();
+}
+
+// ── Build default grid from existing students[] ──────────────────────
+function scBuildDefaultLayout(homeroom){
+  const hrStudents = students.filter(s => s.homeroom === homeroom);
+  const perCol = Math.ceil(hrStudents.length / 3);
+  return [0,1,2].map(c => {
+    const chunk = hrStudents.slice(c * perCol, (c+1) * perCol);
+    const clusters = [];
+    for(let i = 0; i < chunk.length; i += 4){
+      const g = chunk.slice(i, i+4);
+      const makeKey = s => (s && s.last && s.first) ? s.last+'_'+s.first : null;
+      clusters.push({
+        label: 'Group ' + (clusters.length+1),
+        desks: [
+          [makeKey(g[0]), makeKey(g[1])],
+          [makeKey(g[2]) || null, makeKey(g[3]) || null]
+        ]
+      });
+    }
+    if(!clusters.length) clusters.push({label:'Group 1', desks:[[null,null]]});
+    return {clusters};
+  });
+}
+
+// ── Student display name ──────────────────────────────────────────────
+function scKeyToName(key){
+  if(!key) return '';
+  const s = students.find(s => s.last+'_'+s.first === key);
+  if(s) return s.first + ' ' + s.last;
+  // fallback: reverse the key
+  const parts = key.split('_');
+  return parts.length>=2 ? parts[1]+' '+parts[0] : key;
+}
+
+// ── Homeroom tabs ─────────────────────────────────────────────────────
+function scRenderTabs(){
+  const bar = document.getElementById('scHomeroomTabs');
+  if(!bar) return;
+  bar.innerHTML = SC_HOMEROOMS.map(hr =>
+    `<button class="sc-tab-btn${hr===scActiveHomeroom?' sc-active':''}" onclick="scSwitchHomeroom('${hr}')">${hr}</button>`
+  ).join('');
+}
+
+function scSwitchHomeroom(hr){
+  scActiveHomeroom = hr;
+  scRenderTabs();
+  scRenderActivePanel();
+  scRenderStats();
+}
+
+// ── Stats bar ─────────────────────────────────────────────────────────
+function scRenderStats(){
+  const el = document.getElementById('scStatsBar');
+  if(!el) return;
+  const hrStudents = students.filter(s => s.homeroom === scActiveHomeroom);
+  let totalDD=0,totalPart=0,totalDisc=0,prof=0,appr=0,emrg=0,marked=0;
+  hrStudents.forEach(s => {
+    const sess = scSession[s.last+'_'+s.first];
+    if(!sess) return;
+    totalDD   += sess.dd||0;
+    totalPart += sess.participation||0;
+    totalDisc += sess.discussion||0;
+    if(sess.ptLevel){
+      marked++;
+      if(sess.ptLevel==='proficient')  prof++;
+      else if(sess.ptLevel==='approaching') appr++;
+      else emrg++;
+    }
+  });
+  const pct = marked ? Math.round(prof/marked*100) : 0;
+  el.innerHTML = [
+    {n:hrStudents.length,l:'Students',       c:'var(--gold-l)'},
+    {n:totalDD,          l:'Dragon Dollars 🐉', c:'var(--gold)'},
+    {n:totalPart,        l:'Participation',  c:'var(--tide)'},
+    {n:totalDisc,        l:'Discussion',     c:'var(--stone)'},
+    {n:prof,             l:'PT Proficient',  c:'#52c788'},
+    {n:appr,             l:'PT Approaching', c:'var(--gold)'},
+    {n:emrg,             l:'PT Emerging',    c:'#e07070'},
+    {n:marked?pct+'%':'—', l:'PT Rate',      c:pct>=70?'#52c788':pct>=50?'var(--gold)':'#e07070'},
+  ].map(s=>`<div class="stat-card" style="min-width:100px;">
+    <div class="stat-num" style="color:${s.c};font-size:20px;">${s.n}</div>
+    <div class="stat-lbl">${s.l}</div>
+  </div>`).join('');
+}
+
+function scRerenderAll(){
+  scRenderTabs();
+  scRenderActivePanel();
+  scRenderStats();
+}
+
+// ── Main floor-plan renderer ──────────────────────────────────────────
+function scRenderActivePanel(){
+  const container = document.getElementById('scHomeroomPanels');
+  if(!container) return;
+  container.innerHTML = '';
+
+  const layout     = scLayouts[scActiveHomeroom] || [];
+  const heatMetric = document.getElementById('scHeatMetric')?.value || 'none';
+
+  // Collect assigned keys
+  const assignedSet = new Set();
+  layout.forEach(col => col.clusters.forEach(cl =>
+    cl.desks.forEach(row => row.forEach(k => { if(k) assignedSet.add(k); }))
+  ));
+
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'display:flex;gap:16px;align-items:flex-start;';
+
+  // ── Sidebar (only in edit mode) ──
+  if(scEditMode){
+    const sidebar = document.createElement('div');
+    sidebar.style.cssText = 'width:200px;flex-shrink:0;display:flex;flex-direction:column;gap:10px;';
+
+    const hrStudents = students.filter(s => s.homeroom === scActiveHomeroom);
+    const unassigned = hrStudents.filter(s => !assignedSet.has(s.last+'_'+s.first));
+
+    sidebar.innerHTML = `
+      <div style="background:rgba(34,28,20,.85);border:1px solid rgba(212,168,67,.15);border-radius:10px;padding:12px;"
+        id="scPool_${scActiveHomeroom}"
+        ondragover="event.preventDefault()"
+        ondrop="scDropToPool(event,'${scActiveHomeroom}')">
+        <div style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;color:var(--gold);opacity:.6;margin-bottom:8px;text-transform:uppercase;">Unassigned Pool</div>
+        <div id="scPoolInner" style="display:flex;flex-wrap:wrap;gap:4px;min-height:28px;">
+          ${unassigned.length
+            ? unassigned.map(s => scChipHTML(s.last+'_'+s.first, s.first+' '+s.last)).join('')
+            : '<span style="font-size:9px;color:rgba(255,255,255,.25);font-style:italic;">All students seated ✓</span>'}
+        </div>
+      </div>
+      <div style="background:rgba(34,28,20,.85);border:1px solid rgba(212,168,67,.15);border-radius:10px;padding:10px 12px;">
+        <div style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;color:var(--gold);opacity:.6;margin-bottom:8px;text-transform:uppercase;">Layout</div>
+        <button onclick="scAddColumn('${scActiveHomeroom}')"
+          style="width:100%;font-size:9px;padding:4px;border-radius:5px;border:1px solid rgba(212,168,67,.2);background:rgba(212,168,67,.06);color:var(--gold);cursor:pointer;">+ Add Column</button>
+      </div>`;
+    wrapper.appendChild(sidebar);
+  }
+
+  // ── Floor plan ──
+  const floor = document.createElement('div');
+  floor.style.cssText = 'display:flex;gap:14px;align-items:flex-start;flex:1;overflow-x:auto;padding-bottom:8px;';
+
+  layout.forEach((col, ci) => {
+    const colDiv = document.createElement('div');
+    colDiv.style.cssText = 'display:flex;flex-direction:column;gap:10px;min-width:180px;max-width:260px;flex:1;';
+
+    col.clusters.forEach((cl, cli) => {
+      const clDiv = document.createElement('div');
+      clDiv.className = 'sc-cluster';
+
+      // Cluster header
+      const hdrDiv = document.createElement('div');
+      hdrDiv.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;';
+      if(scEditMode){
+        hdrDiv.innerHTML = `
+          <input value="${cl.label||'Group '+(cli+1)}"
+            style="background:transparent;border:none;border-bottom:1px solid rgba(212,168,67,.2);
+            color:var(--gold);font-size:9px;letter-spacing:.1em;width:100px;outline:none;font-family:'Cinzel',serif;"
+            onchange="scLayouts['${scActiveHomeroom}'][${ci}].clusters[${cli}].label=this.value">
+          <div style="display:flex;gap:4px;">
+            <button onclick="scAddRow('${scActiveHomeroom}',${ci},${cli})"
+              style="font-size:8px;padding:1px 6px;border-radius:3px;border:1px solid rgba(77,184,232,.3);background:transparent;color:var(--tide);cursor:pointer;">+row</button>
+            <button onclick="scRemoveCluster('${scActiveHomeroom}',${ci},${cli})"
+              style="background:none;border:none;color:rgba(255,255,255,.2);cursor:pointer;font-size:10px;padding:0;">✕</button>
+          </div>`;
+      } else {
+        hdrDiv.innerHTML = `<div class="sc-cluster-label">${cl.label||'Group '+(cli+1)}</div>`;
+      }
+      clDiv.appendChild(hdrDiv);
+
+      // Desk rows
+      cl.desks.forEach((row, ri) => {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'sc-desk-pair';
+
+        row.forEach((key, di) => {
+          const deskDiv = document.createElement('div');
+
+          if(!key){
+            // Empty desk slot
+            deskDiv.className = 'sc-desk sc-empty';
+            deskDiv.style.minHeight = '60px';
+            if(scEditMode){
+              deskDiv.style.borderStyle = 'dashed';
+              deskDiv.innerHTML = `<span style="font-size:9px;color:rgba(255,255,255,.15);user-select:none;">${di===0?'L':'R'}</span>`;
+              deskDiv.ondragover  = e => { e.preventDefault(); deskDiv.classList.add('sc-drag-over'); };
+              deskDiv.ondragleave = () => deskDiv.classList.remove('sc-drag-over');
+              deskDiv.ondrop      = e => scDropOnDesk(e, scActiveHomeroom, ci, cli, ri, di);
+            }
+          } else {
+            // Occupied desk
+            const name = scKeyToName(key);
+            const sess = scSession[key] || {};
+            const keyE = key.replace(/\/g,'\\').replace(/'/g,"\'");
+
+            // Heatmap tint
+            let htClass = '';
+            if(heatMetric !== 'none'){
+              let val = 0;
+              if(heatMetric==='dd')            val = sess.dd||0;
+              else if(heatMetric==='participation') val = sess.participation||0;
+              else if(heatMetric==='discussion')    val = sess.discussion||0;
+              else if(heatMetric==='pt')
+                val = sess.ptLevel==='proficient'?4:sess.ptLevel==='approaching'?2:sess.ptLevel==='emerging'?1:0;
+              if(val>0){
+                if(val<=1) htClass='sc-ht-low';
+                else if(val<=3) htClass='sc-ht-mid';
+                else if(val<=6) htClass='sc-ht-high';
+                else htClass='sc-ht-great';
+              }
+            }
+
+            deskDiv.className = `sc-desk${htClass?' '+htClass:''}`;
+
+            // Badge row
+            let badges = '';
+            if(sess.dd)            badges+=`<span class="sc-metric sc-metric-dd">🐉${sess.dd}</span>`;
+            if(sess.participation) badges+=`<span class="sc-metric sc-metric-part">P:${sess.participation}</span>`;
+            if(sess.discussion)    badges+=`<span class="sc-metric sc-metric-disc">D:${sess.discussion}</span>`;
+            if(sess.ptLevel){
+              const pc = sess.ptLevel==='proficient'?'sc-metric-prof':sess.ptLevel==='approaching'?'sc-metric-appr':'sc-metric-emrg';
+              const ps = sess.ptLevel==='proficient'?'✓P':sess.ptLevel==='approaching'?'~A':'▲E';
+              badges += `<span class="sc-metric ${pc}">${ps}</span>`;
+            }
+
+            if(scEditMode){
+              deskDiv.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+                  <div class="sc-desk-name" draggable="true"
+                    style="cursor:grab;flex:1;"
+                    ondragstart="scDragStart('${keyE}',${ci},${cli},${ri},${di},event)"
+                    ondragend="scDragEnd(event)">${name}</div>
+                  <button class="sc-desk-del" onclick="event.stopPropagation();scClearDesk('${scActiveHomeroom}',${ci},${cli},${ri},${di})" title="Unassign">✕</button>
+                </div>
+                <div class="sc-desk-metrics">${badges||'<span style="font-size:8px;opacity:.3;">—</span>'}</div>`;
+              deskDiv.ondragover  = e => { e.preventDefault(); deskDiv.classList.add('sc-drag-over'); };
+              deskDiv.ondragleave = () => deskDiv.classList.remove('sc-drag-over');
+              deskDiv.ondrop      = e => scDropOnDesk(e, scActiveHomeroom, ci, cli, ri, di);
+            } else {
+              deskDiv.innerHTML = `
+                <div class="sc-desk-name">${name}</div>
+                <div class="sc-desk-metrics">${badges}</div>
+                <div class="sc-desk-btns">
+                  <button class="sc-db sc-db-dd"      onclick="event.stopPropagation();scLog('${keyE}','dd',1)"            title="Dragon Dollar +1">🐉+</button>
+                  <button class="sc-db sc-db-part"    onclick="event.stopPropagation();scLog('${keyE}','participation',1)" title="Participation +1">Part+</button>
+                  <button class="sc-db sc-db-disc"    onclick="event.stopPropagation();scLog('${keyE}','discussion',1)"    title="Discussion +1">Disc+</button>
+                  <button class="sc-db sc-db-pt-prof" onclick="event.stopPropagation();scSetPT('${keyE}','proficient')"   title="Proficient">✓P</button>
+                  <button class="sc-db sc-db-pt-appr" onclick="event.stopPropagation();scSetPT('${keyE}','approaching')"  title="Approaching">~A</button>
+                  <button class="sc-db sc-db-pt-emrg" onclick="event.stopPropagation();scSetPT('${keyE}','emerging')"     title="Emerging">▲E</button>
+                </div>`;
+              deskDiv.addEventListener('click', () => scOpenDetail(key));
+            }
+          }
+          rowDiv.appendChild(deskDiv);
+        });
+
+        // Row-remove button in edit mode
+        if(scEditMode){
+          const rb = document.createElement('button');
+          rb.textContent = '✕';
+          rb.title = 'Remove row';
+          rb.style.cssText = 'background:none;border:none;color:rgba(255,255,255,.2);cursor:pointer;font-size:9px;padding:0 2px;align-self:center;flex-shrink:0;';
+          rb.onclick = () => scRemoveRow(scActiveHomeroom, ci, cli, ri);
+          rowDiv.appendChild(rb);
+        }
+        clDiv.appendChild(rowDiv);
+      });
+
+      // Add-cluster button
+      if(scEditMode){
+        const acBtn = document.createElement('button');
+        acBtn.textContent = '+ cluster';
+        acBtn.style.cssText = 'width:100%;margin-top:6px;padding:3px;font-size:9px;border-radius:5px;border:1px dashed rgba(77,184,232,.25);background:transparent;color:rgba(77,184,232,.45);cursor:pointer;';
+        acBtn.onclick = () => scAddCluster(scActiveHomeroom, ci);
+        colDiv.appendChild(clDiv);
+        colDiv.appendChild(acBtn);
+      } else {
+        colDiv.appendChild(clDiv);
+      }
+    });
+
+    // Remove-column button
+    if(scEditMode){
+      const rcBtn = document.createElement('button');
+      rcBtn.textContent = '✕ Remove Column';
+      rcBtn.style.cssText = 'width:100%;margin-top:4px;font-size:9px;padding:3px;border-radius:4px;border:1px solid rgba(224,112,112,.2);background:transparent;color:rgba(224,112,112,.35);cursor:pointer;';
+      rcBtn.onclick = () => scRemoveColumn(scActiveHomeroom, ci);
+      colDiv.appendChild(rcBtn);
+    }
+
+    floor.appendChild(colDiv);
+  });
+
+  // Front-of-room banner
+  const banner = document.createElement('div');
+  banner.innerHTML = `<div style="margin-top:14px;text-align:center;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.12em;color:var(--gold);opacity:.45;border-top:1px solid rgba(212,168,67,.12);padding-top:10px;">▼ FRONT OF ROOM</div>`;
+  floor.appendChild(banner);
+
+  wrapper.appendChild(floor);
+
+  // Heatmap legend
+  if(heatMetric !== 'none'){
+    const leg = document.createElement('div');
+    leg.className = 'sc-heat-legend';
+    leg.style.marginTop = '10px';
+    leg.innerHTML = `
+      <span><span class="sc-heat-swatch" style="background:rgba(26,111,168,.45);"></span>Low</span>
+      <span><span class="sc-heat-swatch" style="background:rgba(124,189,82,.4);"></span>Mid</span>
+      <span><span class="sc-heat-swatch" style="background:rgba(212,168,67,.45);"></span>High</span>
+      <span><span class="sc-heat-swatch" style="background:rgba(82,199,136,.5);"></span>Great</span>`;
+    const outerDiv = document.createElement('div');
+    outerDiv.appendChild(wrapper);
+    outerDiv.appendChild(leg);
+    container.appendChild(outerDiv);
+    return;
+  }
+
+  container.appendChild(wrapper);
+}
+
+// ── One-click log ─────────────────────────────────────────────────────
+function scLog(key, field, delta){
+  if(!scSession[key]) scSession[key] = {dd:0, participation:0, discussion:0, ptLevel:null, log:[]};
+  const sess = scSession[key];
+  sess[field] = (sess[field]||0) + delta;
+  const ts = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const lbl = {dd:'Dragon $', participation:'Part', discussion:'Disc'}[field]||field;
+  sess.log.unshift(`${ts} — ${lbl} +${delta} → ${sess[field]}`);
+  if(sess.log.length>40) sess.log.pop();
+  const name = scKeyToName(key);
+  showToast(`${name} · ${lbl} → ${sess[field]}`);
+  scRerenderAll();
+  scheduleSheetsSync();
+  scPushStudentSession(key);
+  // Refresh detail modal if open
+  if(scDetailOpenKey === key) scOpenDetail(key);
+}
+
+function scSetPT(key, level){
+  if(!scSession[key]) scSession[key] = {dd:0, participation:0, discussion:0, ptLevel:null, log:[]};
+  const sess = scSession[key];
+  sess.ptLevel = (sess.ptLevel === level) ? null : level;
+  const ts = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  sess.log.unshift(`${ts} — Priority Task → ${sess.ptLevel||'cleared'}`);
+  const name = scKeyToName(key);
+  showToast(`${name} · PT → ${sess.ptLevel||'cleared'}`);
+  scRerenderAll();
+  scheduleSheetsSync();
+  scPushStudentSession(key);
+  if(scDetailOpenKey === key) scOpenDetail(key);
+}
+
+// ── Edit mode toggle ──────────────────────────────────────────────────
+function scToggleEditMode(){
+  scEditMode = !scEditMode;
+  const btn = document.getElementById('scEditToggle');
+  if(btn){
+    btn.style.background    = scEditMode ? 'rgba(212,168,67,.2)'   : 'transparent';
+    btn.style.borderColor   = scEditMode ? 'var(--gold)'           : 'rgba(212,168,67,.2)';
+    btn.style.color         = scEditMode ? 'var(--gold-l)'         : 'var(--mist)';
+    btn.textContent         = scEditMode ? '✓ Done Editing'        : '✏️ Edit Seats';
+  }
+  if(!scEditMode) scSaveLayoutToSheets();
+  scRenderActivePanel();
+}
+
+// ── Drag & drop ───────────────────────────────────────────────────────
+function scChipHTML(key, displayName){
+  const kE = key.replace(/'/g,"\'");
+  return `<div class="sc-chip" draggable="true"
+    ondragstart="scDragStart('${kE}',null,null,null,null,event)"
+    ondragend="scDragEnd(event)"
+    title="${displayName}">${displayName}</div>`;
+}
+
+function scDragStart(key, ci, cli, ri, di, e){
+  scDragName = key;
+  scDragFrom = (ci !== null) ? {homeroom:scActiveHomeroom,ci,cli,ri,di} : null;
+  e.dataTransfer.effectAllowed = 'move';
+  if(e.currentTarget) e.currentTarget.style.opacity = '.35';
+}
+function scDragEnd(e){
+  if(e.currentTarget) e.currentTarget.style.opacity = '';
+  // Don't null these here — ondrop may not have fired yet
+}
+
+function scDropOnDesk(e, hr, ci, cli, ri, di){
+  e.preventDefault(); e.stopPropagation();
+  if(e.currentTarget) e.currentTarget.classList.remove('sc-drag-over');
+  if(!scDragName) return;
+  const dragged   = scDragName;
+  const targetKey = scLayouts[hr][ci].clusters[cli].desks[ri][di];
+  // Clear old position
+  if(scDragFrom && scDragFrom.homeroom === hr){
+    scLayouts[hr][scDragFrom.ci].clusters[scDragFrom.cli].desks[scDragFrom.ri][scDragFrom.di] = targetKey || null;
+  } else {
+    // From pool — remove from any existing seat
+    scLayouts[hr].forEach(col => col.clusters.forEach(cl =>
+      cl.desks.forEach(row => { const i=row.indexOf(dragged); if(i>=0) row[i]=null; })
+    ));
+  }
+  scLayouts[hr][ci].clusters[cli].desks[ri][di] = dragged;
+  scDragName = null; scDragFrom = null;
+  scRenderActivePanel();
+  scRenderStats();
+  scSaveLayoutToSheets();
+}
+
+function scDropToPool(e, hr){
+  e.preventDefault();
+  if(!scDragName) return;
+  const dragged = scDragName;
+  scLayouts[hr].forEach(col => col.clusters.forEach(cl =>
+    cl.desks.forEach(row => { const i=row.indexOf(dragged); if(i>=0) row[i]=null; })
+  ));
+  scDragName = null; scDragFrom = null;
+  scRenderActivePanel();
+  scSaveLayoutToSheets();
+}
+
+// ── Structure mutations ───────────────────────────────────────────────
+function scClearDesk(hr,ci,cli,ri,di){
+  scLayouts[hr][ci].clusters[cli].desks[ri][di]=null;
+  scRenderActivePanel(); scSaveLayoutToSheets();
+}
+function scAddRow(hr,ci,cli){
+  scLayouts[hr][ci].clusters[cli].desks.push([null,null]);
+  scRenderActivePanel();
+}
+function scRemoveRow(hr,ci,cli,ri){
+  scLayouts[hr][ci].clusters[cli].desks.splice(ri,1);
+  if(!scLayouts[hr][ci].clusters[cli].desks.length)
+    scLayouts[hr][ci].clusters[cli].desks.push([null,null]);
+  scRenderActivePanel(); scSaveLayoutToSheets();
+}
+function scAddCluster(hr,ci){
+  scLayouts[hr][ci].clusters.push({label:'Group '+(scLayouts[hr][ci].clusters.length+1), desks:[[null,null]]});
+  scRenderActivePanel();
+}
+function scRemoveCluster(hr,ci,cli){
+  if(scLayouts[hr][ci].clusters.length<=1){ showToast('Need at least 1 cluster per column'); return; }
+  scLayouts[hr][ci].clusters.splice(cli,1);
+  scRenderActivePanel(); scSaveLayoutToSheets();
+}
+function scAddColumn(hr){
+  scLayouts[hr].push({clusters:[{label:'Group 1', desks:[[null,null],[null,null]]}]});
+  scRenderActivePanel();
+}
+function scRemoveColumn(hr,ci){
+  if(scLayouts[hr].length<=1){ showToast('Need at least 1 column'); return; }
+  scLayouts[hr].splice(ci,1);
+  scRenderActivePanel(); scSaveLayoutToSheets();
+}
+
+// ── Add / Remove student ──────────────────────────────────────────────
+function scShowAddStudent(){
+  document.getElementById('scAddModal')?.classList.add('sc-modal-open');
+  document.getElementById('scNewFirst')?.focus();
+}
+function scCloseAddModal(){
+  document.getElementById('scAddModal')?.classList.remove('sc-modal-open');
+}
+function scCommitAddStudent(){
+  const first    = (document.getElementById('scNewFirst')?.value||'').trim();
+  const last     = (document.getElementById('scNewLast')?.value||'').trim();
+  const homeroom = document.getElementById('scNewHomeroom')?.value || 'Columbia';
+  if(!first||!last){ showToast('⚠ Enter first and last name'); return; }
+  const key = last+'_'+first;
+  if(students.find(s=>s.last===last&&s.first===first)){ showToast('⚠ Student already exists'); return; }
+  students.push({first,last,homeroom,nation:'',bending_group:'',chi:0,iep:0,ell:0,chi_type:'',level:1,scores:{},priority_standard:''});
+  scSession[key] = {dd:0,participation:0,discussion:0,ptLevel:null,log:[]};
+  if(document.getElementById('scNewFirst')) document.getElementById('scNewFirst').value='';
+  if(document.getElementById('scNewLast'))  document.getElementById('scNewLast').value='';
+  scCloseAddModal();
+  scRerenderAll();
+  if(SHEETS_ENABLED) sheetsPost({action:'saveSeatingStudent',student_key:key,first,last,homeroom,op:'add'}).catch(()=>{});
+  showToast(`✓ ${first} ${last} added to ${homeroom} — drag from pool to seat`);
+}
+
+// ── Student detail modal ──────────────────────────────────────────────
+function scOpenDetail(key){
+  scDetailOpenKey = key;
+  const modal = document.getElementById('scDetailModal');
+  if(!modal) return;
+  const name = scKeyToName(key);
+  const sess = scSession[key] || {dd:0,participation:0,discussion:0,ptLevel:null,log:[]};
+  document.getElementById('scDetailName').textContent = name;
+  const ptColor = sess.ptLevel==='proficient'?'#52c788':sess.ptLevel==='approaching'?'var(--gold)':sess.ptLevel==='emerging'?'#e07070':'rgba(255,255,255,.3)';
+  const kE = key.replace(/'/g,"\'");
+  document.getElementById('scDetailBody').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+      <div style="background:rgba(42,37,32,.9);border:1px solid rgba(212,168,67,.12);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:26px;font-weight:800;color:var(--gold-l);">${sess.dd||0}</div>
+        <div style="font-size:9px;opacity:.45;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Dragon Dollars</div>
+        <div style="display:flex;gap:5px;justify-content:center;">
+          <button onclick="scLog('${kE}','dd',1)"  style="padding:3px 10px;border-radius:5px;background:rgba(212,168,67,.15);border:1px solid rgba(212,168,67,.3);color:var(--gold-l);cursor:pointer;font-size:10px;">+1</button>
+          <button onclick="scLog('${kE}','dd',5)"  style="padding:3px 10px;border-radius:5px;background:rgba(212,168,67,.15);border:1px solid rgba(212,168,67,.3);color:var(--gold-l);cursor:pointer;font-size:10px;">+5</button>
+          <button onclick="scLog('${kE}','dd',-1)" style="padding:3px 8px;border-radius:5px;background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.3);cursor:pointer;font-size:10px;">-1</button>
+        </div>
+      </div>
+      <div style="background:rgba(42,37,32,.9);border:1px solid rgba(212,168,67,.12);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:26px;font-weight:800;color:var(--tide);">${sess.participation||0}</div>
+        <div style="font-size:9px;opacity:.45;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Participation</div>
+        <div style="display:flex;gap:5px;justify-content:center;">
+          <button onclick="scLog('${kE}','participation',1)"  style="padding:3px 10px;border-radius:5px;background:rgba(77,184,232,.12);border:1px solid rgba(77,184,232,.3);color:var(--tide);cursor:pointer;font-size:10px;">+1</button>
+          <button onclick="scLog('${kE}','participation',-1)" style="padding:3px 8px;border-radius:5px;background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.3);cursor:pointer;font-size:10px;">-1</button>
+        </div>
+      </div>
+      <div style="background:rgba(42,37,32,.9);border:1px solid rgba(212,168,67,.12);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:26px;font-weight:800;color:var(--stone);">${sess.discussion||0}</div>
+        <div style="font-size:9px;opacity:.45;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Discussion</div>
+        <div style="display:flex;gap:5px;justify-content:center;">
+          <button onclick="scLog('${kE}','discussion',1)"  style="padding:3px 10px;border-radius:5px;background:rgba(124,189,82,.1);border:1px solid rgba(124,189,82,.25);color:var(--stone);cursor:pointer;font-size:10px;">+1</button>
+          <button onclick="scLog('${kE}','discussion',-1)" style="padding:3px 8px;border-radius:5px;background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.3);cursor:pointer;font-size:10px;">-1</button>
+        </div>
+      </div>
+      <div style="background:rgba(42,37,32,.9);border:1px solid rgba(212,168,67,.12);border-radius:8px;padding:10px;text-align:center;">
+        <div style="font-size:20px;font-weight:800;color:${ptColor};min-height:32px;line-height:1.4;">${sess.ptLevel||'—'}</div>
+        <div style="font-size:9px;opacity:.45;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Priority Task</div>
+        <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">
+          <button onclick="scSetPT('${kE}','proficient')"  style="padding:2px 8px;border-radius:4px;background:rgba(82,199,136,.12);border:1px solid rgba(82,199,136,.3);color:#52c788;cursor:pointer;font-size:9px;">✓P</button>
+          <button onclick="scSetPT('${kE}','approaching')" style="padding:2px 8px;border-radius:4px;background:rgba(212,168,67,.12);border:1px solid rgba(212,168,67,.3);color:var(--gold);cursor:pointer;font-size:9px;">~A</button>
+          <button onclick="scSetPT('${kE}','emerging')"    style="padding:2px 8px;border-radius:4px;background:rgba(224,112,112,.12);border:1px solid rgba(224,112,112,.3);color:#e07070;cursor:pointer;font-size:9px;">▲E</button>
+          ${sess.ptLevel?`<button onclick="scSetPT('${kE}',null)" style="padding:2px 8px;border-radius:4px;background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.3);cursor:pointer;font-size:9px;">✕</button>`:''}
+        </div>
+      </div>
+    </div>
+    <div style="font-size:9px;font-weight:700;letter-spacing:.1em;opacity:.35;text-transform:uppercase;margin-bottom:6px;">Activity Log</div>
+    <div style="background:rgba(0,0,0,.3);border-radius:6px;padding:8px 10px;font-size:10px;color:rgba(255,255,255,.5);max-height:120px;overflow-y:auto;line-height:1.7;">
+      ${sess.log.length ? sess.log.map(l=>`<div>${l}</div>`).join('') : '<span style="opacity:.3;font-style:italic;">No actions yet.</span>'}
+    </div>`;
+  const removeBtn = document.getElementById('scDetailRemoveBtn');
+  if(removeBtn) removeBtn.onclick = () => scRemoveStudent(key, name);
+  modal.classList.add('sc-modal-open');
+}
+
+function scCloseDetailModal(){
+  document.getElementById('scDetailModal')?.classList.remove('sc-modal-open');
+  scDetailOpenKey = null;
+}
+
+function scRemoveStudent(key, name){
+  if(scPendingRemove===key){
+    scPendingRemove = null;
+    delete scSession[key];
+    Object.values(scLayouts).forEach(layout =>
+      layout.forEach(col => col.clusters.forEach(cl =>
+        cl.desks.forEach(row=>{ const i=row.indexOf(key); if(i>=0) row[i]=null; })
+      ))
+    );
+    const si = students.findIndex(s=>s.last+'_'+s.first===key);
+    if(si>=0) students.splice(si,1);
+    scCloseDetailModal();
+    scRerenderAll();
+    if(SHEETS_ENABLED){
+      sheetsPost({action:'saveSeatingStudent',student_key:key,op:'remove'}).catch(()=>{});
+      scSaveLayoutToSheets();
+    }
+    showToast(`${name} removed from seating`);
+  } else {
+    scPendingRemove = key;
+    showToast(`⚠ Tap Remove again to confirm removing ${name}`);
+    setTimeout(()=>{ if(scPendingRemove===key) scPendingRemove=null; }, 5000);
+  }
+}
+
+// ── Reset session ─────────────────────────────────────────────────────
+function scResetSession(){
+  if(!confirm('Reset all live tracker data?\n\nClears Dragon Dollars, Participation, Discussion, and Priority Task for all students in the current homeroom.\nSeating layout is preserved.')) return;
+  students.filter(s=>s.homeroom===scActiveHomeroom).forEach(s=>{
+    const k = s.last+'_'+s.first;
+    scSession[k] = {dd:0,participation:0,discussion:0,ptLevel:null,log:[]};
+  });
+  scRerenderAll();
+  showToast('↺ Session data reset for ' + scActiveHomeroom);
+}
+
+// ── Sheets helpers ────────────────────────────────────────────────────
+async function scSaveLayoutToSheets(){
+  if(!SHEETS_ENABLED) return;
+  sheetsPost({action:'saveSeatingLayout', layouts:scLayouts, savedAt:new Date().toISOString()}).catch(()=>{});
+}
+
+async function scPushStudentSession(key){
+  if(!SHEETS_ENABLED) return;
+  const sess = scSession[key];
+  if(!sess) return;
+  const s = students.find(st=>st.last+'_'+st.first===key);
+  sheetsPost({
+    action:'saveSeatingSession', op:'upsert',
+    student_key:key,
+    first:s?.first||'', last:s?.last||'', homeroom:s?.homeroom||'',
+    date:todayStr(),
+    dd:sess.dd||0, participation:sess.participation||0,
+    discussion:sess.discussion||0, pt_level:sess.ptLevel||''
+  }).catch(()=>{});
+}
+
+async function scLoadLayoutsFromSheets(){
+  try {
+    const data = await sheetsGet('getSeating');
+    if(!data||data.error) return;
+    if(data.layouts){
+      const parsed = typeof data.layouts==='string' ? JSON.parse(data.layouts) : data.layouts;
+      if(parsed && typeof parsed==='object') Object.assign(scLayouts, parsed);
+    }
+    if(Array.isArray(data.sessions)){
+      data.sessions.forEach(row=>{
+        if(!row.student_key) return;
+        const k = row.student_key;
+        if(!scSession[k]) scSession[k]={dd:0,participation:0,discussion:0,ptLevel:null,log:[]};
+        const s = scSession[k];
+        if(row.dd!=null) s.dd=Number(row.dd)||0;
+        if(row.participation!=null) s.participation=Number(row.participation)||0;
+        if(row.discussion!=null) s.discussion=Number(row.discussion)||0;
+        if(row.pt_level) s.ptLevel=row.pt_level||null;
+      });
+    }
+    scRerenderAll();
+  } catch(e){ console.debug('scLoadLayoutsFromSheets:', e); }
+}
+
+// Hook silent pull to refresh seating if tab is open
+const _scOrigSilentPull = typeof silentPullFromSheets !== 'undefined' ? silentPullFromSheets : null;
+// Override is handled inside the existing silentPullFromSheets via the inline check
+
+</script>
 </html>
