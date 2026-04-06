@@ -74,7 +74,7 @@ nav{position:sticky;top:0;z-index:100;background:rgba(19,15,8,.94);backdrop-filt
 
 /* ── MAIN ── */
 main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14px 80px;}
-.section{display:none;animation:fade-in .3s ease;}.section.visible{display:block;}
+.section{display:none;animation:fade-in .3s ease;}.section.visible{display:block;}.section.tps-section[style*='display: block']{display:block!important;}
 .slide-card{border-radius:20px;padding:28px 32px;margin-bottom:0;min-height:520px;display:none;}
 .slide-card.slide-active{display:block;}
 .slide-tab-active{background:rgba(212,168,67,.25)!important;color:#ffd700!important;border-color:rgba(212,168,67,.6)!important;}
@@ -954,6 +954,18 @@ main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14p
 </style>
 </head>
 <body>
+<!-- Teacher PS overlay — permanent DOM element, never hidden by section system -->
+<div id="tps-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;
+  background:#0e0b07;overflow-y:auto;z-index:9999;padding:16px;">
+  <div style="max-width:1200px;margin:0 auto;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.1);">
+      <button onclick="closeTPSOverlay()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:6px 14px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;">✕ Close</button>
+      <span id="tps-overlay-title" style="font-family:'Cinzel',serif;font-size:14px;color:#fff;font-weight:700;"></span>
+    </div>
+    <div id="tps-overlay-body"></div>
+  </div>
+</div>
+
 
 <div class="bg-layer bg-gradient" id="bgLayer"></div>
 
@@ -1032,6 +1044,9 @@ main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14p
   <button class="tab f" onclick="showTab('fire')">🔥 Fire</button>
   <button class="tab e" onclick="showTab('earth')">🪨 Earth</button>
   <button class="tab tracker-tab" onclick="showTab('tracker')">⚡ Chi Tracker</button>
+  <button class="tab" onclick="showTab('prioritystudents')" style="background:rgba(240,74,90,.15);border-color:rgba(240,74,90,.4);color:#f55f6f;">🎯 Priority Students</button>
+  <button class="tab" onclick="showTeacherPSTab('bowen')" style="background:rgba(255,140,0,.15);border-color:rgba(255,140,0,.4);color:#ffa040;">🟠 Bowen Priority</button>
+  <button class="tab" onclick="showTeacherPSTab('alt')" style="background:rgba(100,160,255,.15);border-color:rgba(100,160,255,.4);color:#7ab4ff;">🔵 Alt Priority</button>
   <button class="tab" onclick="showTab('quests')">🗺 Quests</button>
   <button class="tab" onclick="showTab('questmap')">🌍 Quest Map</button>
   <button class="tab" onclick="showTab('questrace')">🏁 Quest Race</button>
@@ -1198,7 +1213,7 @@ main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14p
           <button class="award-btn" onclick="awardChi('standard_grew',15)"><span class="ab-icon">📈</span><span class="ab-label">Grew on Standard</span><span class="ab-pts">+15 Chi</span><span class="ab-desc">Quiz improvement</span></button>
           <button class="award-btn" onclick="awardChi('quiz_growth',25)"><span class="ab-icon">📈</span><span class="ab-label">Quiz Growth</span><span class="ab-pts">+25 Chi</span><span class="ab-desc">2 in a row = +25 streak</span></button>
           <button class="award-btn" onclick="awardChi('standard_mastery',40)"><span class="ab-icon">🎓</span><span class="ab-label">Standard Mastery</span><span class="ab-pts">+40 Chi</span><span class="ab-desc">2 in a row = +40 streak</span></button>
-          <button class="award-btn" onclick="awardChi('exit_proficient',15)"><span class="ab-icon">✅</span><span class="ab-label">Priority Task: Proficient</span><span class="ab-pts">+15 Chi</span><span class="ab-desc">Also feeds mastery streak</span></button>
+          <button class="award-btn" onclick="awardChi('exit_proficient',15)"><span class="ab-icon">✅</span><span class="ab-label">Priority Task: Proficient</span><span class="ab-pts">+15 Chi</span><span class="ab-desc" id="exitProfDesc">Feeds mastery streak · auto-logs to Priority Tracker</span></button>
         </div>
       </div>
 
@@ -1252,9 +1267,131 @@ main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14p
   </div>
 </section>
 
+<!-- ═══════════════════════════ PRIORITY STUDENTS ═══════════════════════════ -->
+<section class="section" id="prioritystudents">
+  <div class="sec-head">
+    <h2 style="color:#f55f6f;font-family:'Cinzel',serif;">🎯 Priority Students</h2>
+    <p>Daily mastery tracking, engagement logging, IA/quiz scores, and weekly arc for your 11 identified priority students. Mark mastery, effort, skill use, and attendance all in one place.</p>
+  </div>
+
+  <!-- Toolbar: view toggle + date -->
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px;
+    background:rgba(240,74,90,.07);border:1px solid rgba(240,74,90,.2);border-radius:10px;padding:12px 16px;">
+    <div style="font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;color:#f55f6f;">VIEW:</div>
+    <button id="ps-view-daily" class="ps-view-btn active" onclick="setPSView('daily',this)"
+      style="padding:5px 14px;border-radius:6px;border:1.5px solid rgba(240,74,90,.5);
+      background:rgba(240,74,90,.2);color:#f55f6f;font-size:11px;cursor:pointer;font-family:'Cinzel',serif;letter-spacing:.06em;">
+      📅 Daily
+    </button>
+    <button id="ps-view-rollup" class="ps-view-btn" onclick="setPSView('rollup',this)"
+      style="padding:5px 14px;border-radius:6px;border:1px solid rgba(255,255,255,.15);
+      background:transparent;color:rgba(255,255,255,.5);font-size:11px;cursor:pointer;font-family:'Cinzel',serif;letter-spacing:.06em;">
+      📊 Weekly Rollup
+    </button>
+    <button id="ps-view-scores" class="ps-view-btn" onclick="setPSView('scores',this)"
+      style="padding:5px 14px;border-radius:6px;border:1px solid rgba(255,255,255,.15);
+      background:transparent;color:rgba(255,255,255,.5);font-size:11px;cursor:pointer;font-family:'Cinzel',serif;letter-spacing:.06em;">
+      📈 IA / Quiz Scores
+    </button>
+    <div style="width:1px;height:20px;background:rgba(255,255,255,.1);"></div>
+    <span style="font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;color:#f55f6f;">HOMEROOM:</span>
+    <button id="ps-hr-all" class="ps-hr-btn" onclick="setPSHomeroom('all',this)"
+      style="padding:4px 11px;border-radius:6px;border:1.5px solid rgba(240,74,90,.5);background:rgba(240,74,90,.2);color:#f55f6f;font-size:11px;cursor:pointer;font-family:'Cinzel',serif;">All</button>
+    <button id="ps-hr-columbia" class="ps-hr-btn" onclick="setPSHomeroom('Columbia',this)"
+      style="padding:4px 11px;border-radius:6px;border:1px solid rgba(77,184,232,.3);background:transparent;color:rgba(77,184,232,.6);font-size:11px;cursor:pointer;font-family:'Cinzel',serif;">Columbia</button>
+    <button id="ps-hr-emory" class="ps-hr-btn" onclick="setPSHomeroom('Emory',this)"
+      style="padding:4px 11px;border-radius:6px;border:1px solid rgba(240,112,48,.3);background:transparent;color:rgba(240,112,48,.6);font-size:11px;cursor:pointer;font-family:'Cinzel',serif;">Emory</button>
+    <button id="ps-hr-vanderbilt" class="ps-hr-btn" onclick="setPSHomeroom('Vanderbilt',this)"
+      style="padding:4px 11px;border-radius:6px;border:1px solid rgba(124,189,82,.3);background:transparent;color:rgba(124,189,82,.6);font-size:11px;cursor:pointer;font-family:'Cinzel',serif;">Vanderbilt</button>
+    <div style="width:1px;height:20px;background:rgba(255,255,255,.1);"></div>
+    <span style="font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;color:#f55f6f;">NATION:</span>
+    <button id="ps-nat-all" onclick="setPSNation('all',this)"
+      style="padding:4px 11px;border-radius:6px;border:1px solid rgba(255,255,255,.12);background:transparent;color:rgba(255,255,255,.3);font-size:11px;cursor:pointer;font-family:'Cinzel',serif;">All</button>
+    <button id="ps-nat-water" onclick="setPSNation('Water',this)"
+      style="padding:4px 11px;border-radius:6px;border:1px solid rgba(77,184,232,.25);background:transparent;color:rgba(77,184,232,.45);font-size:11px;cursor:pointer;font-family:'Cinzel',serif;">🌊 Water</button>
+    <button id="ps-nat-fire" onclick="setPSNation('Fire',this)"
+      style="padding:4px 11px;border-radius:6px;border:1px solid rgba(240,74,90,.25);background:transparent;color:rgba(240,74,90,.45);font-size:11px;cursor:pointer;font-family:'Cinzel',serif;">🔥 Fire</button>
+    <button id="ps-nat-earth" onclick="setPSNation('Earth',this)"
+      style="padding:4px 11px;border-radius:6px;border:1px solid rgba(124,189,82,.25);background:transparent;color:rgba(124,189,82,.45);font-size:11px;cursor:pointer;font-family:'Cinzel',serif;">🪨 Earth</button>
+    <div style="width:1px;height:20px;background:rgba(255,255,255,.1);"></div>
+    <label style="font-size:10px;opacity:.6;">Date:</label>
+    <input type="date" id="psDayPicker"
+      style="background:rgba(0,0,0,.3);border:1px solid rgba(240,74,90,.3);border-radius:6px;
+      padding:4px 8px;color:#fff;font-size:12px;"
+      onchange="renderPSDaily()">
+    <button onclick="psDayNav(-1)" style="background:none;border:1px solid rgba(255,255,255,.15);
+      border-radius:5px;color:rgba(255,255,255,.6);cursor:pointer;padding:3px 9px;font-size:12px;">‹</button>
+    <button onclick="psDayNav(1)" style="background:none;border:1px solid rgba(255,255,255,.15);
+      border-radius:5px;color:rgba(255,255,255,.6);cursor:pointer;padding:3px 9px;font-size:12px;">›</button>
+    <button onclick="psDayNav(0)" style="background:none;border:1px solid rgba(240,74,90,.3);
+      border-radius:5px;color:#f55f6f;cursor:pointer;padding:3px 9px;font-size:11px;">Today</button>
+    <div style="margin-left:auto;font-size:10px;opacity:.5;" id="psDayLabel"></div>
+  </div>
+
+  <!-- DAILY VIEW -->
+  <div id="ps-panel-daily">
+    <!-- Today's standard banner -->
+    <div id="ps-std-banner" style="margin-bottom:14px;padding:8px 14px;
+      background:rgba(82,199,136,.07);border:1px solid rgba(82,199,136,.2);border-radius:8px;
+      display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:9px;font-family:'Cinzel',serif;letter-spacing:.1em;opacity:.5;">TODAY'S STANDARD:</span>
+      <span id="ps-std-label" style="font-weight:700;color:#52c788;font-size:12px;">Not set — go to Priority Tasks tab to set</span>
+      <span style="font-size:9px;opacity:.4;margin-left:auto;">Proficiency marks sync with Chi Tracker automatically</span>
+    </div>
+
+    <!-- Student cards grid -->
+    <div id="ps-daily-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;"></div>
+
+    <!-- Submit session button -->
+    <div style="margin-top:18px;text-align:center;">
+      <button onclick="psSaveSession()"
+        style="padding:12px 36px;font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;
+        border-radius:10px;background:linear-gradient(135deg,rgba(240,74,90,.35),rgba(240,74,90,.15));
+        border:1.5px solid rgba(240,74,90,.6);color:#f55f6f;cursor:pointer;transition:all .2s;">
+        💾 Save Session to Sheets
+      </button>
+      <div id="ps-save-status" style="font-size:11px;margin-top:8px;opacity:.6;"></div>
+    </div>
+  </div>
+
+  <!-- WEEKLY ROLLUP VIEW -->
+  <div id="ps-panel-rollup" style="display:none;">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+      <span style="font-size:10px;font-family:'Cinzel',serif;letter-spacing:.1em;opacity:.6;">WEEK OF:</span>
+      <input type="date" id="psWeekPicker"
+        style="background:rgba(0,0,0,.3);border:1px solid rgba(240,74,90,.3);border-radius:6px;
+        padding:4px 8px;color:#fff;font-size:12px;"
+        onchange="renderPSRollup()">
+      <span style="font-size:10px;opacity:.5;">Showing Mon–Fri arc</span>
+    </div>
+    <div id="ps-rollup-grid" style="overflow-x:auto;"></div>
+  </div>
+
+  <!-- SCORES VIEW -->
+  <div id="ps-panel-scores" style="display:none;">
+    <div id="ps-scores-grid"></div>
+  </div>
+
+</section>
+
 <!-- ═══════════════════════════ EXIT TICKETS ═══════════════════════════ -->
 <section class="section" id="exitticket">
-  <div class="sec-head"><h2 class="gold">📋 Priority Task Tracker</h2><p>Record today's exit ticket standard or habit focus, then mark each student's level. Auto-awards Chi and feeds streak tracking.</p></div>
+  <div class="sec-head">
+    <h2 class="gold">📋 Priority Task Tracker</h2>
+    <p>Record today's exit ticket standard or habit focus, then mark each student's level. Auto-awards Chi and feeds streak tracking.</p>
+    <!-- Today's standard status bar -->
+    <div id="etTodayStdBanner" style="display:none;margin-top:10px;padding:8px 14px;
+      background:rgba(82,199,136,.08);border:1px solid rgba(82,199,136,.25);border-radius:8px;
+      display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:10px;font-family:'Cinzel',serif;letter-spacing:.1em;opacity:.6;">TODAY'S STANDARD:</span>
+      <span id="etTodayStdLabel" style="font-weight:700;color:#52c788;font-size:12px;"></span>
+      <span style="font-size:10px;opacity:.4;margin-left:auto;">Chi awards will link to this standard</span>
+      <button onclick="clearTodayStandard()" style="background:none;border:1px solid rgba(255,255,255,.15);
+        border-radius:4px;color:rgba(255,255,255,.4);font-size:9px;padding:2px 7px;cursor:pointer;">
+        Change
+      </button>
+    </div>
+  </div>
 
   <!-- Session setup -->
   <div style="background:rgba(34,28,20,.85);border:1px solid rgba(212,168,67,.2);border-radius:12px;padding:16px 20px;margin-bottom:18px;">
@@ -2243,6 +2380,38 @@ main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14p
     </div>
   
 
+  <!-- PROFICIENCY ALIGNMENT — consolidates mastery data across all entry points -->
+  <div style="margin-top:20px;background:rgba(82,199,136,.06);border:1.5px solid rgba(82,199,136,.3);border-radius:12px;padding:18px 20px;">
+    <div style="font-family:'Cinzel',serif;font-size:12px;color:#52c788;letter-spacing:.1em;margin-bottom:6px;">
+      🔗 PROFICIENCY ALIGNMENT
+    </div>
+    <p style="font-size:12px;opacity:.65;margin-bottom:14px;line-height:1.6;">
+      Consolidates mastery data from <b>all entry points</b> — Chi Tracker, Priority Task Tracker, and direct Sheet edits — into a single
+      <b>Proficiency_Alignment</b> tab in Google Sheets. Run this to ensure every source is consistent before grading, reporting, or parent contact.
+    </p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:11px;opacity:.6;margin-bottom:14px;line-height:1.5;">
+      <div>✅ <b>Chi exit_proficient</b> → marks Priority Task Proficient for that day's standard</div>
+      <div>📋 <b>Priority Task Proficient</b> → awards +15 chi + feeds mastery streak</div>
+      <div>🔢 <b>3+ proficiency sessions</b> → flags approaching standard mastery</div>
+      <div>📊 <b>Sheet edits</b> → synced back via Pull Student Data</div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button onclick="runProficiencyAlignment()" style="padding:10px 20px;font-family:'Cinzel',serif;
+        font-size:11px;letter-spacing:.08em;border-radius:8px;
+        background:rgba(82,199,136,.2);border:1.5px solid rgba(82,199,136,.5);
+        color:#52c788;cursor:pointer;transition:all .2s;">
+        🔗 Run Alignment Now
+      </button>
+      <button onclick="syncSheetTab('all')" style="padding:10px 20px;font-family:'Cinzel',serif;
+        font-size:11px;letter-spacing:.08em;border-radius:8px;
+        background:rgba(212,168,67,.12);border:1px solid rgba(212,168,67,.35);
+        color:var(--gold);cursor:pointer;">
+        ⚡ Pull ALL + Align
+      </button>
+    </div>
+    <div id="alignment-status" style="font-size:11px;margin-top:10px;opacity:.65;min-height:18px;"></div>
+  </div>
+
   <!-- DATE CONFIGURATION -->
   <div style="margin-top:24px;background:rgba(77,184,232,.06);border:1px solid rgba(77,184,232,.2);border-radius:12px;padding:18px 20px;">
     <div style="font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;color:var(--water-l);margin-bottom:14px;">📅 Assessment Date Settings</div>
@@ -2312,6 +2481,70 @@ main{position:relative;z-index:5;max-width:1360px;margin:0 auto;padding:24px 14p
     <button class="modal-close" onclick="closeModal()">✕</button>
     <div class="modal-head" id="modalHead"></div>
     <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<!-- DAILY STANDARD DIALOG — shown when chi exit_proficient awarded before standard is set -->
+<div id="dailyStdOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9000;
+  display:none;align-items:center;justify-content:center;">
+  <div style="background:#1a1208;border:1.5px solid rgba(212,168,67,.5);border-radius:14px;
+    padding:28px 32px;max-width:480px;width:90%;box-shadow:0 12px 48px rgba(0,0,0,.8);">
+    <div style="font-family:'Cinzel',serif;font-size:16px;color:#e8d5a0;margin-bottom:6px;font-weight:700;">
+      📋 Set Today's Priority Standard
+    </div>
+    <div style="font-size:12px;opacity:.6;margin-bottom:18px;">
+      You awarded <b id="dsdStudentName" style="color:#e8d5a0;"></b> Proficient chi, but no standard
+      has been set for today yet. Choose the standard to link this to the Priority Task Tracker.
+    </div>
+    <select id="dsdStandardSelect" style="width:100%;padding:9px 12px;border-radius:8px;
+      border:1px solid rgba(212,168,67,.3);background:#120d04;color:#e8d5a0;font-size:12px;margin-bottom:10px;">
+      <option value="">— Select today's standard or habit —</option>
+      <optgroup label="ELA Standards">
+        <option value="RI.7.1">RI.7.1 — Cite textual evidence (informational)</option>
+        <option value="RL.7.1">RL.7.1 — Cite textual evidence (literary)</option>
+        <option value="RI.7.2">RI.7.2 — Central idea &amp; summary (informational)</option>
+        <option value="RL.7.2">RL.7.2 — Theme &amp; summary (literary)</option>
+        <option value="RI.7.3">RI.7.3 — Interactions between people/events/ideas</option>
+        <option value="RL.7.3">RL.7.3 — How plot/character/setting develop</option>
+        <option value="RI.7.4">RI.7.4 — Word meaning &amp; figurative language (info)</option>
+        <option value="RL.7.4">RL.7.4 — Word meaning &amp; figurative language (lit)</option>
+        <option value="RI.7.5">RI.7.5 — Text structure &amp; author purpose (info)</option>
+        <option value="RL.7.5">RL.7.5 — Text structure &amp; form (literary)</option>
+        <option value="RI.7.6">RI.7.6 — Author point of view &amp; purpose (info)</option>
+        <option value="RL.7.6">RL.7.6 — Author point of view (literary)</option>
+        <option value="RI.7.8">RI.7.8 — Evaluate argument, claims &amp; evidence</option>
+        <option value="RI.7.9">RI.7.9 — Compare/contrast two texts (info)</option>
+        <option value="RL.7.9">RL.7.9 — Compare/contrast two texts (literary)</option>
+        <option value="W.7.1">W.7.1 — Write arguments (RACCE/CRQ)</option>
+        <option value="W.7.9">W.7.9 — Draw evidence from texts in writing</option>
+      </optgroup>
+      <optgroup label="Habit Benchmarks">
+        <option value="HB.TJT">HB.TJT — Successfully set up Thinking Job Tracker</option>
+        <option value="HB.ANN">HB.ANN — Annotated text with purpose codes</option>
+        <option value="HB.NC">HB.NC — Completed Note Catcher independently</option>
+        <option value="HB.POE">HB.POE — Applied POE codes to all MC questions</option>
+        <option value="HB.RACCE">HB.RACCE — Used RACCE structure in written response</option>
+        <option value="HB.EV">HB.EV — Cited specific evidence (not paraphrase)</option>
+        <option value="HB.REV">HB.REV — Self-revised work using a rubric/checklist</option>
+        <option value="HB.PEER">HB.PEER — Gave or received peer feedback productively</option>
+        <option value="HB.GOAL">HB.GOAL — Referenced personal skill/habit goal during work</option>
+        <option value="HB.TIME">HB.TIME — Managed time across all parts of the task</option>
+      </optgroup>
+    </select>
+    <div id="dsdAlsoSkip" style="font-size:10px;color:rgba(212,168,67,.5);margin-bottom:14px;">
+      This will also pre-populate the Priority Task Tracker for today.
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="dsdConfirm()" style="flex:1;padding:10px;border-radius:8px;border:none;
+        background:rgba(212,168,67,.85);color:#1a1208;font-weight:700;font-size:13px;cursor:pointer;">
+        ✓ Set Standard &amp; Continue
+      </button>
+      <button onclick="dsdSkip()" style="padding:10px 16px;border-radius:8px;
+        border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.5);
+        font-size:11px;cursor:pointer;">
+        Skip (chi only)
+      </button>
+    </div>
   </div>
 </div>
 
@@ -3045,6 +3278,85 @@ function applyAutoStreaks(studentIdx, bonuses){
 let etNation = 'all';
 let etSelections = {}; // studentIdx -> 'proficient'|'approaching'|'emerging'|null
 const etSessionHistory = []; // [{date, standard, results:[{si,level}]}]
+
+// ── Daily Standard & Proficiency Alignment ────────────────────────
+// Keyed by date string (YYYY-MM-DD): { standard, label, setAt }
+// When chi exit_proficient is awarded, this standard is used to
+// auto-populate the ET tracker for the day.
+let DAILY_STANDARDS = {};          // { 'YYYY-MM-DD': {standard, label} }
+let DAILY_PROFICIENCY = {};        // { 'YYYY-MM-DD': { si: 'proficient'|'approaching'|'emerging' } }
+
+function todayKey(){ return new Date().toISOString().slice(0,10); }
+
+function getTodayStandard(){
+  return DAILY_STANDARDS[todayKey()] || null;
+}
+
+function setTodayStandard(standard, label){
+  const key = todayKey();
+  DAILY_STANDARDS[key] = { standard, label: label || standard };
+  // Sync the ET standard dropdown to match
+  const sel = document.getElementById('etStandardSelect');
+  if(sel && standard){
+    sel.value = standard;
+    refreshETViews();
+  }
+  // Persist
+  try { localStorage.setItem('avatar_daily_standards', JSON.stringify(DAILY_STANDARDS)); } catch(e){}
+}
+
+function loadDailyStandards(){
+  try {
+    const raw = localStorage.getItem('avatar_daily_standards');
+    if(raw){ Object.assign(DAILY_STANDARDS, JSON.parse(raw)); }
+  } catch(e){}
+  try {
+    const raw2 = localStorage.getItem('avatar_daily_proficiency');
+    if(raw2){ Object.assign(DAILY_PROFICIENCY, JSON.parse(raw2)); }
+  } catch(e){}
+  // If today's standard is already set, sync the dropdown
+  const ds = getTodayStandard();
+  if(ds){
+    const sel = document.getElementById('etStandardSelect');
+    if(sel) sel.value = ds.standard;
+  }
+}
+
+function saveDailyProficiency(){
+  try { localStorage.setItem('avatar_daily_proficiency', JSON.stringify(DAILY_PROFICIENCY)); } catch(e){}
+}
+
+// Record a proficiency mark in the daily map and sync ET tracker
+function recordDailyProficiency(si, level){
+  const key = todayKey();
+  if(!DAILY_PROFICIENCY[key]) DAILY_PROFICIENCY[key] = {};
+  DAILY_PROFICIENCY[key][si] = level;
+  saveDailyProficiency();
+  // If the ET standard matches today's standard, sync etSelections too
+  const ds = getTodayStandard();
+  const sel = document.getElementById('etStandardSelect');
+  if(ds && sel && sel.value === ds.standard){
+    etSelections[si] = level;
+    // Re-render only the affected card if grid is visible
+    const card = document.getElementById('etcard-'+si);
+    if(card){
+      const btns = card.querySelectorAll('.et-btn');
+      btns.forEach(b => b.classList.remove('sel'));
+      const target = card.querySelector('.et-btn.'+level.slice(0,4));
+      if(target) target.classList.add('sel');
+      card.className = 'et-card et-'+level;
+    }
+  }
+}
+
+// Restore today's proficiency marks into etSelections when switching to ET tab
+function restoreTodayProficiencyToET(){
+  const key = todayKey();
+  const dayMap = DAILY_PROFICIENCY[key] || {};
+  Object.entries(dayMap).forEach(([si, level])=>{
+    etSelections[parseInt(si)] = level;
+  });
+}
 let etView = 'card'; // 'card' | 'roster'
 let etSort = {field:'name', dir:1};
 
@@ -3279,6 +3591,42 @@ function submitETSession(){
   const tnEl = document.getElementById('etTaskNameInput');
   if(tnEl){ tnEl.value = ''; onETTaskNameInput(); }
 
+  // Sync proficiency results back to all priority daily logs
+  results.forEach(r => {
+    const s = students[r.si];
+    if(!s) return;
+    const pKey = s.last+'_'+s.first;
+    const todayDate = today;
+    // General PS log
+    if(typeof PS_DAILY_LOG !== 'undefined'){
+      if(!PS_DAILY_LOG[todayDate]) PS_DAILY_LOG[todayDate]={};
+      if(!PS_DAILY_LOG[todayDate][pKey]) PS_DAILY_LOG[todayDate][pKey]={mastery:'',effort:'',skillUse:0,habitUse:0,engagement:'',absent:0,notes:''};
+      PS_DAILY_LOG[todayDate][pKey].mastery = r.level;
+      try{ localStorage.setItem('ps_daily_log', JSON.stringify(PS_DAILY_LOG)); } catch(e){}
+    }
+    // Teacher PS logs (bowen / alt)
+    if(typeof TEACHER_PS_LOGS !== 'undefined'){
+      ['bowen','alt'].forEach(g => {
+        if(!TEACHER_PS_LOGS[g]) return;
+        if(!TEACHER_PS_LOGS[g][todayDate]) TEACHER_PS_LOGS[g][todayDate]={};
+        if(!TEACHER_PS_LOGS[g][todayDate][pKey]) TEACHER_PS_LOGS[g][todayDate][pKey]={mastery:'',effort:'',skillUse:0,habitUse:0,engagement:'',absent:0,notes:''};
+        TEACHER_PS_LOGS[g][todayDate][pKey].mastery = r.level;
+        try{ localStorage.setItem('teacher_ps_log_'+g, JSON.stringify(TEACHER_PS_LOGS[g])); } catch(e){}
+      });
+    }
+  });
+  // Re-render priority tabs if currently visible
+  if(typeof renderPSDaily==='function'){
+    const psSec = document.getElementById('prioritystudents');
+    if(psSec && psSec.classList.contains('visible')) renderPSDaily();
+  }
+  ['bowen','alt'].forEach(g => {
+    if(typeof renderTeacherPSCards==='function'){
+      const sec = document.getElementById(g+'priority');
+      if(sec && sec.classList.contains('visible')) renderTeacherPSCards(g);
+    }
+  });
+
   // Clear selections for next session
   etSelections = {};
   renderETGrid();
@@ -3410,7 +3758,8 @@ function nationIcon(n){ return {Water:'🌊',Fire:'🔥',Earth:'🪨'}[n]||''; }
 function showTab(id){
   // Reset illuminate if leaving it mid-flow
   if(id !== 'illuminate'){ try{ ilmReset(); } catch(e){ console.warn('ilmReset error:',e); } }
-  document.querySelectorAll('.section').forEach(s=>s.classList.remove('visible'));
+  document.querySelectorAll('.section:not(.tps-section)').forEach(s=>s.classList.remove('visible'));
+  document.querySelectorAll('.section.tps-section').forEach(s=>{ s.classList.remove('visible'); s.style.display=''; });
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   const sec = document.getElementById(id);
   if(!sec){ alert('ERROR: section not found: ' + id); return; }
@@ -3439,7 +3788,22 @@ function showTab(id){
   if(id==='placards'){ renderSlotPicker(); renderPlacards(); }
   if(id==='sheetsync'){ initDateConfigUI(); }
   if(id==='etexport'){ initETExportTab(); }
-  if(id==='seatcenter'){ scInitIfNeeded(); }
+  if(id==='prioritystudents'){ initPriorityStudents(); }
+  // bowenpriority and altpriority are handled by showTeacherPSTab, not showTab directly.
+  // If somehow showTab('bowenpriority') is called directly, delegate:
+  if(id==='bowenpriority'){ showTeacherPSTab('bowen'); return; }
+  if(id==='altpriority'){   showTeacherPSTab('alt');   return; }
+}
+
+// ── Wrapper specifically for teacher PS tabs to ensure section stays visible ──
+function showTeacherPSTab(g) {
+  // Mark the nav button active (cosmetic only — content goes in overlay)
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => {
+    const oc = t.getAttribute('onclick') || '';
+    if (oc.includes("'" + g + "'")) t.classList.add('active');
+  });
+  initTeacherPS(g);
 }
 
 // ════════════════════════════════════════════════
@@ -4111,7 +4475,55 @@ function updateAwardPanel(){
 }
 async function awardChi(type, amount){
   if(selectedStudents.size===0){showToast('Select a student first!');return;}
-  const selectedArr = [...selectedStudents];
+
+  // ── Proficiency Alignment: exit_proficient needs today's standard ──
+  if(type === 'exit_proficient'){
+    const ds = getTodayStandard();
+    if(!ds){
+      // Show dialog to set today's standard before proceeding
+      _pendingChiAward = { type, amount, students: [...selectedStudents] };
+      const names = [...selectedStudents].map(i=>students[i].first).join(', ');
+      const el = document.getElementById('dsdStudentName');
+      if(el) el.textContent = names;
+      const overlay = document.getElementById('dailyStdOverlay');
+      if(overlay){ overlay.style.display = 'flex'; }
+      return; // wait for dsdConfirm() or dsdSkip()
+    }
+  }
+
+  await _doAwardChi(type, amount, [...selectedStudents]);
+}
+
+// Pending award while waiting for standard dialog
+let _pendingChiAward = null;
+
+function dsdConfirm(){
+  const sel = document.getElementById('dsdStandardSelect');
+  const val = sel?.value;
+  if(!val){ showToast('Please select a standard first'); return; }
+  const label = sel.options[sel.selectedIndex]?.text || val;
+  setTodayStandard(val, label);
+  document.getElementById('dailyStdOverlay').style.display = 'none';
+  updateTodayStdBanner();
+  if(_pendingChiAward){
+    const { type, amount, students: studs } = _pendingChiAward;
+    _pendingChiAward = null;
+    studs.forEach(i => selectedStudents.add(i));
+    _doAwardChi(type, amount, studs);
+  }
+}
+
+function dsdSkip(){
+  document.getElementById('dailyStdOverlay').style.display = 'none';
+  if(_pendingChiAward){
+    const { type, amount, students: studs } = _pendingChiAward;
+    _pendingChiAward = null;
+    studs.forEach(i => selectedStudents.add(i));
+    _doAwardChi(type, amount, studs);
+  }
+}
+
+async function _doAwardChi(type, amount, selectedArr){
   const autoStreakQueue = [];
 
   for (const idx of selectedArr) {
@@ -4136,6 +4548,34 @@ async function awardChi(type, amount){
     if(bonuses.length) autoStreakQueue.push({idx, bonuses});
     autoCheckGoalMastery(idx, type, 'Chi Award');
 
+    // ── Proficiency Alignment: chi exit_proficient → ET tracker + all priority logs ──
+    if(type === 'exit_proficient'){
+      recordDailyProficiency(idx, 'proficient');
+      const ds = getTodayStandard();
+      if(ds) etSelections[idx] = 'proficient';
+      // Sync to priority daily logs
+      const s2 = students[idx];
+      if(s2){
+        const pKey2 = s2.last+'_'+s2.first;
+        const td2 = todayStr();
+        if(typeof PS_DAILY_LOG !== 'undefined'){
+          if(!PS_DAILY_LOG[td2]) PS_DAILY_LOG[td2]={};
+          if(!PS_DAILY_LOG[td2][pKey2]) PS_DAILY_LOG[td2][pKey2]={mastery:'',effort:'',skillUse:0,habitUse:0,engagement:'',absent:0,notes:''};
+          PS_DAILY_LOG[td2][pKey2].mastery = 'proficient';
+          try{ localStorage.setItem('ps_daily_log', JSON.stringify(PS_DAILY_LOG)); }catch(e){}
+        }
+        if(typeof TEACHER_PS_LOGS !== 'undefined'){
+          ['bowen','alt'].forEach(g => {
+            if(!TEACHER_PS_LOGS[g]) return;
+            if(!TEACHER_PS_LOGS[g][td2]) TEACHER_PS_LOGS[g][td2]={};
+            if(!TEACHER_PS_LOGS[g][td2][pKey2]) TEACHER_PS_LOGS[g][td2][pKey2]={mastery:'',effort:'',skillUse:0,habitUse:0,engagement:'',absent:0,notes:''};
+            TEACHER_PS_LOGS[g][td2][pKey2].mastery = 'proficient';
+            try{ localStorage.setItem('teacher_ps_log_'+g, JSON.stringify(TEACHER_PS_LOGS[g])); }catch(e){}
+          });
+        }
+      }
+    }
+
     if(SHEETS_ENABLED) {
       await saveChiToSheets(idx);
       await appendChiLogToSheets(idx, amount, type, type);
@@ -4143,12 +4583,17 @@ async function awardChi(type, amount){
   }
 
   const names = selectedArr.map(i=>students[i].first).join(', ');
-  showToast(`+${amount} Chi → ${names} (${AWARD_TYPES[type]?.label||type})`);
+  const ds = getTodayStandard();
+  const stdNote = (type === 'exit_proficient' && ds) ? ` · logged to ${ds.standard}` : '';
+  showToast(`+${amount} Chi → ${names} (${AWARD_TYPES[type]?.label||type})${stdNote}`);
   selectedStudents.clear();
   renderTrackerGrid();
   updateAwardPanel();
   renderChiLog();
   renderOverview();
+  // Re-render ET grid if it's visible so proficiency marks show immediately
+  const etGrid = document.getElementById('etGrid');
+  if(etGrid && etGrid.offsetParent !== null) renderETGrid();
   if(document.getElementById('leaderboard').classList.contains('visible')) renderLeaderboard();
   if(document.getElementById('roster').classList.contains('visible')) renderRoster();
 
@@ -9938,6 +10383,640 @@ function downloadETCSV(){
   showToast('✓ ET data exported as CSV');
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// TEACHER-SPECIFIC PRIORITY TABS — Bowen & Alt
+// Each tab shows only students whose RAW_STUDENTS group === 'Bowen' or 'Alt'
+// Reuses the PS_DAILY_LOG store (keyed by student) but with a separate
+// localStorage namespace so data doesn't collide with the general tab.
+// ═══════════════════════════════════════════════════════════════════
+
+const TEACHER_PS_COLORS = {
+  bowen: { accent:'#ffa040', bg:'rgba(255,140,0,.12)', border:'rgba(255,140,0,.3)', label:'🟠 Bowen' },
+  alt:   { accent:'#7ab4ff', bg:'rgba(100,160,255,.12)', border:'rgba(100,160,255,.3)', label:'🔵 Alt' }
+};
+
+// Per-teacher daily logs stored separately from general PS tab
+const TEACHER_PS_LOGS = { bowen:{}, alt:{} };
+let _teacherPSTimers = { bowen:null, alt:null };
+
+function getTeacherStudents(group){
+  // group is 'Bowen' or 'Alt' (case-insensitive)
+  const g = group.toLowerCase();
+  const src = (typeof students !== 'undefined' ? students : (typeof RAW_STUDENTS !== 'undefined' ? RAW_STUDENTS : []));
+  const filtered = src.filter(s => (s.group||'').toLowerCase() === g);
+  // Sort: homeroom order → nation → last name
+  const HR = ['Columbia','Emory','Vanderbilt'];
+  const NA = {Water:0,Fire:1,Earth:2};
+  filtered.sort((a,b)=>{
+    const hd = (HR.indexOf(a.homeroom||'')<0?99:HR.indexOf(a.homeroom||'')) -
+               (HR.indexOf(b.homeroom||'')<0?99:HR.indexOf(b.homeroom||''));
+    if(hd) return hd;
+    const nd = (NA[a.nation]??9)-(NA[b.nation]??9);
+    if(nd) return nd;
+    return (a.last||'').localeCompare(b.last||'');
+  });
+  return filtered;
+}
+
+function initTeacherPS(group){
+  const g = group.toLowerCase();
+  try {
+    const raw = localStorage.getItem('teacher_ps_log_'+g);
+    if(raw) TEACHER_PS_LOGS[g] = JSON.parse(raw);
+  } catch(e){}
+  const container = document.getElementById(g+'-ps-app');
+  console.log('[TPS] initTeacherPS:', g, 'container:', !!container, 'sec visible:', document.getElementById(g+'priority')?.classList.contains('visible'));
+  if(container && !container._tpsObserving) {
+    container._tpsObserving = true;
+    new MutationObserver(muts => {
+      for(const m of muts) if(m.type==='childList' && m.removedNodes.length)
+        console.warn('[TPS] CONTAINER CLEARED! stack:', new Error().stack.split('\\n').slice(1,4).join(' | '));
+    }).observe(container, {childList:true});
+  }
+  const alreadyBuilt = container && container.querySelector('#tps-cards-'+g);
+  if(alreadyBuilt){
+    renderTeacherPSCards(g);
+    refreshTPSPills(g);
+  } else {
+    renderTeacherPSApp(g);
+  }
+}
+
+function getTeacherPSDayEntry(g, date, key){
+  if(!TEACHER_PS_LOGS[g][date]) TEACHER_PS_LOGS[g][date]={};
+  if(!TEACHER_PS_LOGS[g][date][key]) TEACHER_PS_LOGS[g][date][key]={
+    mastery:'',effort:'',skillUse:0,habitUse:0,engagement:'',absent:0,notes:''
+  };
+  return TEACHER_PS_LOGS[g][date][key];
+}
+
+function setTeacherPSDayField(g, date, key, field, val){
+  getTeacherPSDayEntry(g, date, key)[field] = val;
+  try{ localStorage.setItem('teacher_ps_log_'+g, JSON.stringify(TEACHER_PS_LOGS[g])); } catch(e){}
+
+  // ── Bidirectional sync: mastery → ET tracker + chi alignment (same as general PS tab) ──
+  if(field === 'mastery' && val){
+    const si = students.findIndex(s => (s.last+'_'+s.first) === key);
+    if(si >= 0){
+      if(typeof recordDailyProficiency === 'function') recordDailyProficiency(si, val);
+      etSelections[si] = val;
+      // If proficient, also award chi and sync standard
+      if(val === 'proficient'){
+        const ds = typeof getTodayStandard === 'function' ? getTodayStandard() : null;
+        if(ds) etSelections[si] = 'proficient';
+        // Award chi if not already awarded today
+        const chiKey = 'tps_chi_'+date+'_'+si;
+        if(!sessionStorage.getItem(chiKey)){
+          sessionStorage.setItem(chiKey, '1');
+          if(typeof students !== 'undefined' && students[si]){
+            students[si].chi = Number(students[si].chi||0) + 15;
+            if(typeof updateChiDisplay==='function') updateChiDisplay(si);
+            if(typeof renderTrackerGrid==='function') renderTrackerGrid();
+            if(typeof renderOverview==='function') renderOverview();
+          }
+        }
+      }
+      // Re-render ET grid if visible so marks appear immediately
+      const etGrid = document.getElementById('etGrid');
+      if(etGrid && etGrid.offsetParent !== null && typeof renderETGrid==='function') renderETGrid();
+    }
+  }
+
+  // Re-render the cards so the card border/bg reflects mastery
+  renderTeacherPSCards(g);
+  // Debounce sheet push
+  if(_teacherPSTimers[g]) clearTimeout(_teacherPSTimers[g]);
+  _teacherPSTimers[g] = setTimeout(()=>{ teacherPSPushToSheets(g, date); }, 1500);
+}
+
+async function teacherPSPushToSheets(g, date){
+  if(typeof sheetsPost !== 'function') return;
+  const ps = getTeacherStudentsFiltered(g);
+  const rows = ps.map(s=>{
+    const key = s.last+'_'+s.first;
+    const e = getTeacherPSDayEntry(g, date, key);
+    return { date, student_key:key, first:s.first, last:s.last, homeroom:s.homeroom||'',
+      teacher_group:g, mastery:e.mastery||'', effort:e.effort||'',
+      skill_use:e.skillUse?1:0, habit_use:e.habitUse?1:0,
+      engagement:e.engagement||'', absent:e.absent?1:0, notes:e.notes||'' };
+  });
+  try{
+    await sheetsPost({ action:'saveTeacherPrioritySession', group:g, date, rows });
+    const statusEl = document.getElementById('tps-status-'+g);
+    if(statusEl){ statusEl.textContent='✓ Saved to Sheets'; setTimeout(()=>{ statusEl.textContent=''; },2500); }
+  } catch(err){ console.warn('Teacher PS push failed:', err); }
+}
+
+function renderTeacherPSApp(g){
+  // Use the permanent overlay div — bypasses the section/visible system entirely
+  const overlay = document.getElementById('tps-overlay');
+  const overlayBody = document.getElementById('tps-overlay-body');
+  const titleEl = document.getElementById('tps-overlay-title');
+  if(!overlay || !overlayBody) { console.error('[TPS] overlay not found'); return; }
+  const c = TEACHER_PS_COLORS[g];
+  const today = new Date().toISOString().slice(0,10);
+  const label = g==='bowen' ? '🟠 Bowen Priority Students' : '🔵 Alt Priority Students';
+  if(titleEl) titleEl.textContent = label;
+
+  // Store which group this overlay is for
+  overlay._tpsGroup = g;
+
+  overlayBody.innerHTML = `
+  <div style="background:${c.bg};border:1px solid ${c.border};border-radius:12px;padding:16px;margin-bottom:16px;">
+    <!-- Toolbar -->
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+      <span style="font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;color:${c.accent};">DATE:</span>
+      <button onclick="teacherPSDayNav('${g}',-1)" style="background:transparent;border:1px solid ${c.border};color:${c.accent};border-radius:6px;padding:3px 9px;cursor:pointer;">‹</button>
+      <input type="date" id="tps-day-${g}" value="${today}"
+        onchange="renderTeacherPSCards('${g}')"
+        style="background:rgba(0,0,0,.3);border:1px solid ${c.border};color:#fff;border-radius:6px;padding:4px 8px;font-family:'Cinzel',serif;font-size:11px;">
+      <button onclick="teacherPSDayNav('${g}',1)" style="background:transparent;border:1px solid ${c.border};color:${c.accent};border-radius:6px;padding:3px 9px;cursor:pointer;">›</button>
+      <button onclick="teacherPSDayNav('${g}',0)" style="background:${c.bg};border:1px solid ${c.border};color:${c.accent};border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;">Today</button>
+      <button onclick="teacherPSPushToSheets('${g}', document.getElementById('tps-day-${g}').value)"
+        style="background:${c.bg};border:1px solid ${c.border};color:${c.accent};border-radius:6px;padding:5px 12px;cursor:pointer;font-size:11px;margin-left:auto;">
+        💾 Save to Sheets</button>
+      <span id="tps-status-${g}" style="font-size:11px;color:${c.accent};"></span>
+    </div>
+    <!-- View toggle -->
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <button id="tps-view-daily-${g}" onclick="setTeacherPSView('${g}','daily',this)"
+        style="padding:5px 14px;border-radius:6px;border:1.5px solid ${c.border};background:${c.bg};color:${c.accent};font-size:11px;cursor:pointer;font-family:'Cinzel',serif;">📅 Daily</button>
+      <button id="tps-view-rollup-${g}" onclick="setTeacherPSView('${g}','rollup',this)"
+        style="padding:5px 14px;border-radius:6px;border:1.5px solid rgba(255,255,255,.1);color:rgba(255,255,255,.4);font-size:11px;cursor:pointer;font-family:'Cinzel',serif;">📊 Weekly Rollup</button>
+    </div>
+    <!-- Homeroom filter pills -->
+    <div style="display:flex;gap:7px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+      <span style="font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;color:${c.accent};">HOMEROOM:</span>
+      <button id="tps-hr-all-${g}" class="tps-hr-btn-${g}" onclick="setTPSHomeroom('${g}','all',this)"
+        style="padding:4px 11px;border-radius:6px;border:1.5px solid ${c.border};background:${c.bg};color:${c.accent};font-size:11px;cursor:pointer;font-family:'Cinzel',serif;">All</button>
+      <button id="tps-hr-columbia-${g}" class="tps-hr-btn-${g}" onclick="setTPSHomeroom('${g}','Columbia',this)"
+        style="padding:4px 11px;border-radius:6px;border:1px solid rgba(77,184,232,.3);background:transparent;color:rgba(77,184,232,.6);font-size:11px;cursor:pointer;font-family:'Cinzel',serif;">Columbia</button>
+      <button id="tps-hr-emory-${g}" class="tps-hr-btn-${g}" onclick="setTPSHomeroom('${g}','Emory',this)"
+        style="padding:4px 11px;border-radius:6px;border:1px solid rgba(240,112,48,.3);background:transparent;color:rgba(240,112,48,.6);font-size:11px;cursor:pointer;font-family:'Cinzel',serif;">Emory</button>
+      <button id="tps-hr-vanderbilt-${g}" class="tps-hr-btn-${g}" onclick="setTPSHomeroom('${g}','Vanderbilt',this)"
+        style="padding:4px 11px;border-radius:6px;border:1px solid rgba(124,189,82,.3);background:transparent;color:rgba(124,189,82,.6);font-size:11px;cursor:pointer;font-family:'Cinzel',serif;">Vanderbilt</button>
+    </div>
+    <!-- Nation filter pills -->
+    <div style="display:flex;gap:7px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+      <span style="font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;color:${c.accent};">NATION:</span>
+      <button id="tps-nat-all-${g}" onclick="setTPSNation('${g}','all',this)"
+        style="padding:4px 11px;border-radius:6px;border:1px solid rgba(255,255,255,.12);background:transparent;color:rgba(255,255,255,.3);font-size:11px;cursor:pointer;font-family:'Cinzel',serif;">All</button>
+      <button id="tps-nat-water-${g}" onclick="setTPSNation('${g}','Water',this)"
+        style="padding:4px 11px;border-radius:6px;border:1px solid rgba(77,184,232,.25);background:transparent;color:rgba(77,184,232,.45);font-size:11px;cursor:pointer;font-family:'Cinzel',serif;">🌊 Water</button>
+      <button id="tps-nat-fire-${g}" onclick="setTPSNation('${g}','Fire',this)"
+        style="padding:4px 11px;border-radius:6px;border:1px solid rgba(240,74,90,.25);background:transparent;color:rgba(240,74,90,.45);font-size:11px;cursor:pointer;font-family:'Cinzel',serif;">🔥 Fire</button>
+      <button id="tps-nat-earth-${g}" onclick="setTPSNation('${g}','Earth',this)"
+        style="padding:4px 11px;border-radius:6px;border:1px solid rgba(124,189,82,.25);background:transparent;color:rgba(124,189,82,.45);font-size:11px;cursor:pointer;font-family:'Cinzel',serif;">🪨 Earth</button>
+    </div>
+    <!-- Daily panel -->
+    <div id="tps-panel-daily-${g}">
+      <div id="tps-cards-${g}" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;"></div>
+    </div>
+    <!-- Rollup panel -->
+    <div id="tps-panel-rollup-${g}" style="display:none;overflow-x:auto;"></div>
+  </div>`;
+
+  // Show the overlay
+  overlay.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  renderTeacherPSCards(g);
+}
+
+function closeTPSOverlay() {
+  const overlay = document.getElementById('tps-overlay');
+  if(overlay) { overlay.style.display = 'none'; document.body.style.overflow = ''; }
+}
+
+function teacherPSDayNav(g, dir){
+  const dp = document.getElementById('tps-day-'+g);
+  if(!dp) return;
+  if(dir===0){ dp.value=new Date().toISOString().slice(0,10); }
+  else{
+    const d=new Date(dp.value+'T00:00:00'); d.setDate(d.getDate()+dir);
+    dp.value=d.toISOString().slice(0,10);
+  }
+  renderTeacherPSCards(g);
+}
+
+function setTeacherPSView(g, view, el){
+  document.querySelectorAll(`[id^="tps-view-"][id$="-${g}"]`).forEach(b=>{
+    b.style.background='transparent'; b.style.borderColor='rgba(255,255,255,.1)'; b.style.color='rgba(255,255,255,.4)';
+  });
+  const c=TEACHER_PS_COLORS[g];
+  el.style.background=c.bg; el.style.borderColor=c.border; el.style.color=c.accent;
+  const dp=document.getElementById('tps-panel-daily-'+g);
+  const rp=document.getElementById('tps-panel-rollup-'+g);
+  if(dp) dp.style.display=view==='daily'?'':'none';
+  if(rp){ rp.style.display=view==='rollup'?'':'none'; if(view==='rollup') renderTeacherPSRollup(g); }
+  refreshTPSPills(g);
+}
+
+function renderTeacherPSCards(g){
+  const dp=document.getElementById('tps-day-'+g);
+  const date=dp?dp.value:new Date().toISOString().slice(0,10);
+  const ps=getTeacherStudentsFiltered(g);
+  const c=TEACHER_PS_COLORS[g];
+  // Check overlay first, fall back to section
+  let container = document.getElementById('tps-cards-'+g);
+  const overlay = document.getElementById('tps-overlay');
+  if(!container && overlay && overlay._tpsGroup === g) {
+    container = overlay.querySelector('#tps-cards-'+g);
+  }
+  console.log('[TPS] renderTeacherPSCards:', g, 'students:', ps.length, 'container:', !!container, 'c:', !!c);
+  if(ps.length>0) console.log('[TPS] first student:', ps[0].last, ps[0].first, 'group:', ps[0].group, 'homeroom:', ps[0].homeroom);
+  if(!container) return;
+
+  // Group by homeroom
+  const byHR={};
+  ps.forEach(s=>{ const hr=s.homeroom||'Unknown'; if(!byHR[hr]) byHR[hr]=[]; byHR[hr].push(s); });
+
+  const HR_COLORS={Columbia:'#60b0ff',Emory:'#ffa040',Vanderbilt:'#a0e070'};
+  let html='';
+  for(const [hr, studs] of Object.entries(byHR)){
+    html+=`<div style="grid-column:1/-1;padding:6px 0 2px;border-top:1px solid rgba(255,255,255,.1);margin-top:4px;">
+      <span style="font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;color:${HR_COLORS[hr]||'#aaa'};">
+        ● ${hr.toUpperCase()} — ${studs.length} student${studs.length!==1?'s':''}</span></div>`;
+    studs.forEach(s=>{
+      const key=s.last+'_'+s.first;
+      const safeKey=key.replace(/[^a-z0-9]/gi,'_');
+      const e=getTeacherPSDayEntry(g,date,key);
+      const skillShort=psShorthand(s.skills_goal||'');
+      const habitShort=psShorthand(s.habit_goal||'');
+      const ia1str=s.ia1!=null?Math.round(s.ia1)+'%':'—';
+      const ia2str=s.ia2!=null?Math.round(s.ia2)+'%':'—';
+      const ia2col=s.ia2>=70?'#4caf50':s.ia2>=50?'#ffb300':'#f55f6f';
+      const mastColors={proficient:'#4caf50',approaching:'#ffb300',emerging:'#f55f6f','':c.border};
+      const mastBg={proficient:'rgba(76,175,80,.18)',approaching:'rgba(255,179,0,.18)',emerging:'rgba(245,81,111,.18)','':`${c.bg}`};
+
+      html+=`<div id="tps-card-${g}-${safeKey}"
+        style="background:${e.absent?'rgba(100,100,100,.12)':mastBg[e.mastery||'']};
+               border:1.5px solid ${e.absent?'rgba(150,150,150,.3)':mastColors[e.mastery||'']};
+               border-radius:10px;padding:14px;position:relative;opacity:${e.absent?.55:1};">
+        ${e.absent?'<div style="position:absolute;top:6px;right:8px;font-size:10px;font-weight:bold;color:#aaa;letter-spacing:.08em;">ABSENT</div>':''}
+        <!-- Name + meta -->
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;">
+          <div>
+            <div style="font-family:'Cinzel',serif;font-size:13px;font-weight:bold;color:#fff;">${s.last}, ${s.first}</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px;">${s.nation||''} · IEP:${s.iep?'✓':'✗'} ELL:${s.ell?'✓':'✗'}</div>
+          </div>
+          <div style="text-align:right;font-size:11px;">
+            <span style="color:rgba(255,255,255,.5);">IA1:</span><span style="color:#fff;margin-left:3px;">${ia1str}</span>
+            <span style="color:rgba(255,255,255,.5);margin-left:8px;">IA2:</span><span style="color:${ia2col};margin-left:3px;font-weight:bold;">${ia2str}</span>
+          </div>
+        </div>
+        <!-- Skill + Habit badges -->
+        ${skillShort?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px;">
+          <span title="${(s.skills_goal||'').replace(/"/g,"'")}" style="background:rgba(100,200,100,.15);border:1px solid rgba(100,200,100,.3);color:#90d090;border-radius:4px;padding:2px 7px;font-size:9.5px;">🎯 ${skillShort}</span>
+          ${habitShort?`<span title="${(s.habit_goal||'').replace(/"/g,"'")}" style="background:rgba(200,180,50,.15);border:1px solid rgba(200,180,50,.3);color:#d4c060;border-radius:4px;padding:2px 7px;font-size:9.5px;">🔁 ${habitShort}</span>`:''}
+        </div>`:''}
+        <!-- Mastery buttons -->
+        <div style="display:flex;gap:6px;margin-bottom:9px;">
+          ${['proficient','approaching','emerging'].map(m=>`
+          <button onclick="tpsSetMastery('${g}','${date}','${key}','${m}',this)"
+            style="flex:1;padding:5px 2px;border-radius:6px;cursor:pointer;font-size:10px;font-family:'Cinzel',serif;letter-spacing:.04em;
+            border:1.5px solid ${mastColors[m]};
+            background:${e.mastery===m?mastBg[m]:'transparent'};
+            color:${e.mastery===m?mastColors[m]:'rgba(255,255,255,.4)'};">
+            ${m==='proficient'?'✅ Prof':m==='approaching'?'⚡ App':'🌱 Em'}
+          </button>`).join('')}
+        </div>
+        <!-- Dropdowns row -->
+        <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+          <select onchange="setTeacherPSDayField('${g}','${date}','${key}','effort',this.value)"
+            style="flex:1;min-width:90px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:6px;padding:4px 6px;font-size:11px;">
+            <option value="" ${!e.effort?'selected':''}>Effort…</option>
+            ${['High','Medium','Low'].map(v=>`<option value="${v.toLowerCase()}" ${e.effort===v.toLowerCase()?'selected':''}>${v}</option>`).join('')}
+          </select>
+          <select onchange="setTeacherPSDayField('${g}','${date}','${key}','engagement',this.value)"
+            style="flex:1;min-width:110px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:6px;padding:4px 6px;font-size:11px;">
+            <option value="" ${!e.engagement?'selected':''}>Engagement…</option>
+            ${['Active','Present','Passive','Off-task'].map(v=>`<option value="${v.toLowerCase().replace('-','')}" ${e.engagement===v.toLowerCase().replace('-','')?'selected':''}>${v}</option>`).join('')}
+          </select>
+        </div>
+        <!-- Skill / Habit checkboxes + Absent -->
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,.7);cursor:pointer;">
+            <input type="checkbox" ${e.skillUse?'checked':''} onchange="setTeacherPSDayField('${g}','${date}','${key}','skillUse',this.checked?1:0)">
+            🎯 Skill used
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,.7);cursor:pointer;">
+            <input type="checkbox" ${e.habitUse?'checked':''} onchange="setTeacherPSDayField('${g}','${date}','${key}','habitUse',this.checked?1:0)">
+            🔁 Habit used
+          </label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,.5);cursor:pointer;margin-left:auto;">
+            <input type="checkbox" ${e.absent?'checked':''} onchange="tpsSetAbsent('${g}','${date}','${key}',this.checked)">
+            ✈ Absent
+          </label>
+        </div>
+        <!-- Notes -->
+        <textarea placeholder="Notes for today…" rows="2"
+          oninput="setTeacherPSDayField('${g}','${date}','${key}','notes',this.value)"
+          onblur="setTeacherPSDayField('${g}','${date}','${key}','notes',this.value)"
+          style="width:100%;box-sizing:border-box;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.12);color:#fff;border-radius:6px;padding:6px 8px;font-size:11px;resize:vertical;">${e.notes||''}</textarea>
+      </div>`;
+    });
+  }
+  container.innerHTML = html || `
+    <div style="grid-column:1/-1;text-align:center;padding:48px 24px;opacity:.5;">
+      <div style="font-size:2rem;margin-bottom:10px;">🔍</div>
+      <div style="font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;">No students match this filter</div>
+      <div style="font-size:11px;margin-top:6px;opacity:.7;">Try selecting a different homeroom or nation</div>
+    </div>`;
+  refreshTPSPills(g);
+}
+
+
+function refreshTPSPills(g) {
+  const hr = (TPS_HOMEROOM_FILTER && TPS_HOMEROOM_FILTER[g]) || 'all';
+  // Count students per homeroom so we can dim empty pills
+  const src = (typeof students !== 'undefined' ? students : typeof RAW_STUDENTS !== 'undefined' ? RAW_STUDENTS : []);
+  const groupStudents = src.filter(s => (s.group||'').toLowerCase() === g);
+  const hrCounts = {};
+  groupStudents.forEach(s => { hrCounts[s.homeroom||'Unknown'] = (hrCounts[s.homeroom||'Unknown']||0)+1; });
+
+  ['all','Columbia','Emory','Vanderbilt'].forEach(h => {
+    const b = document.getElementById('tps-hr-' + h.toLowerCase() + '-' + g);
+    if (!b) return;
+    const s = HR_PILL_STYLES[h];
+    const count = h === 'all' ? groupStudents.length : (hrCounts[h]||0);
+    const isEmpty = count === 0;
+    b.style.cssText = (h === hr ? s.active : s.inactive) +
+      'padding:4px 11px;border-radius:6px;font-size:11px;cursor:pointer;font-family:Cinzel,serif;';
+    if (isEmpty && h !== 'all') {
+      b.style.opacity = '0.25';
+      b.title = 'No ' + h + ' students in this group';
+    } else {
+      b.style.opacity = '';
+      b.title = count + ' student' + (count !== 1 ? 's' : '');
+    }
+    // Show count badge
+    b.textContent = h === 'all' ? 'All (' + count + ')' : h + (count ? ' ('+count+')' : '');
+  });
+  if (typeof refreshTPSNationPills === 'function') refreshTPSNationPills(g);
+}
+
+function tpsSetMastery(g, date, key, mastery, btn){
+  const e=getTeacherPSDayEntry(g,date,key);
+  e.mastery = e.mastery===mastery ? '' : mastery;
+  try{ localStorage.setItem('teacher_ps_log_'+g, JSON.stringify(TEACHER_PS_LOGS[g])); } catch(err){}
+  if(_teacherPSTimers[g]) clearTimeout(_teacherPSTimers[g]);
+  _teacherPSTimers[g]=setTimeout(()=>{ teacherPSPushToSheets(g,date); },1500);
+  renderTeacherPSCards(g);
+}
+
+function tpsSetAbsent(g, date, key, val){
+  setTeacherPSDayField(g, date, key, 'absent', val?1:0);
+  renderTeacherPSCards(g);
+}
+
+function renderTeacherPSRollup(g){
+  const container=document.getElementById('tps-panel-rollup-'+g);
+  if(!container) return;
+  const c=TEACHER_PS_COLORS[g];
+  const ps=getTeacherStudentsFiltered(g);
+  // Get Mon-Fri of current week
+  const today=new Date();
+  const mon=new Date(today); mon.setDate(today.getDate()-today.getDay()+1);
+  const days=[];
+  for(let i=0;i<5;i++){ const d=new Date(mon); d.setDate(mon.getDate()+i); days.push(d.toISOString().slice(0,10)); }
+  const dayNames=['Mon','Tue','Wed','Thu','Fri'];
+
+  const mastIcon={proficient:'✅',approaching:'⚡',emerging:'🌱','':'·'};
+  let table=`<table style="width:100%;border-collapse:collapse;font-size:12px;">
+  <thead><tr style="border-bottom:1px solid rgba(255,255,255,.15);">
+    <th style="text-align:left;padding:6px 8px;color:rgba(255,255,255,.6);font-weight:400;font-family:'Cinzel',serif;font-size:10px;">Student</th>
+    <th style="padding:6px 8px;color:rgba(255,255,255,.6);font-weight:400;font-family:'Cinzel',serif;font-size:10px;white-space:nowrap;">IA1→IA2</th>
+    <th style="padding:6px 8px;color:rgba(255,255,255,.6);font-weight:400;font-family:'Cinzel',serif;font-size:10px;">Skill/Habit</th>
+    ${dayNames.map((d,i)=>`<th style="padding:6px 8px;text-align:center;color:${days[i]===today.toISOString().slice(0,10)?c.accent:'rgba(255,255,255,.5)'};font-family:'Cinzel',serif;font-size:10px;">${d}</th>`).join('')}
+    <th style="padding:6px 8px;text-align:center;color:rgba(255,255,255,.5);font-family:'Cinzel',serif;font-size:10px;">✅/5</th>
+    <th style="padding:6px 8px;text-align:center;color:rgba(255,255,255,.5);font-family:'Cinzel',serif;font-size:10px;">Abs</th>
+  </tr></thead><tbody>`;
+
+  const HR_COLORS={Columbia:'#60b0ff',Emory:'#ffa040',Vanderbilt:'#a0e070'};
+  let lastHR='';
+  ps.forEach(s=>{
+    const key=s.last+'_'+s.first;
+    if(s.homeroom!==lastHR){
+      lastHR=s.homeroom;
+      table+=`<tr><td colspan="10" style="padding:8px 8px 2px;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;color:${HR_COLORS[s.homeroom]||'#aaa'};border-top:1px solid rgba(255,255,255,.08);">● ${(s.homeroom||'').toUpperCase()}</td></tr>`;
+    }
+    const ia1=s.ia1!=null?Math.round(s.ia1)+'%':'—';
+    const ia2=s.ia2!=null?Math.round(s.ia2)+'%':'—';
+    const ia2col=s.ia2>=70?'#4caf50':s.ia2>=50?'#ffb300':'#f55f6f';
+    const growth=s.ia1!=null&&s.ia2!=null?Math.round(s.ia2-s.ia1):null;
+    const growthStr=growth!=null?(growth>=0?`<span style="color:#4caf50">▲${growth}%</span>`:`<span style="color:#f55f6f">▼${Math.abs(growth)}%</span>`):'';
+    const skillShort=typeof psShorthand==='function'?psShorthand(s.skills_goal||''):'';
+    const habitShort=typeof psShorthand==='function'?psShorthand(s.habit_goal||''):'';
+    const profCount=days.filter(d=>TEACHER_PS_LOGS[g][d]?.[key]?.mastery==='proficient').length;
+    const absCount=days.filter(d=>TEACHER_PS_LOGS[g][d]?.[key]?.absent).length;
+
+    table+=`<tr style="border-top:1px solid rgba(255,255,255,.05);">
+      <td style="padding:7px 8px;color:#fff;white-space:nowrap;">${s.last}, ${s.first}${s.iep?'<span style="color:#ffb300;font-size:9px;margin-left:4px;">IEP</span>':''}</td>
+      <td style="padding:7px 8px;text-align:center;white-space:nowrap;">
+        <span style="color:rgba(255,255,255,.5);font-size:10px;">${ia1}</span>
+        <span style="color:${ia2col};font-weight:bold;margin:0 3px;">${ia2}</span>
+        <span style="font-size:10px;">${growthStr}</span>
+      </td>
+      <td style="padding:7px 8px;font-size:10px;">
+        ${skillShort?`<span style="color:#90d090;display:block;">🎯 ${skillShort}</span>`:''}
+        ${habitShort?`<span style="color:#d4c060;display:block;">🔁 ${habitShort}</span>`:''}
+      </td>
+      ${days.map(d=>{
+        const e=TEACHER_PS_LOGS[g][d]?.[key];
+        const m=e?.mastery||'';
+        const icon=m==='proficient'?'✅':m==='approaching'?'⚡':m==='emerging'?'🌱':e?.absent?'✈':'·';
+        const col=m==='proficient'?'#4caf50':m==='approaching'?'#ffb300':m==='emerging'?'#f55f6f':e?.absent?'#888':'rgba(255,255,255,.2)';
+        const effortDot=e?.effort==='high'?'🔥':e?.effort==='medium'?'⚡':e?.effort==='low'?'💤':'';
+        return `<td style="padding:7px 8px;text-align:center;color:${col};font-size:14px;" title="${d}">${icon}${effortDot?`<div style="font-size:9px;">${effortDot}</div>`:''}</td>`;
+      }).join('')}
+      <td style="padding:7px 8px;text-align:center;color:${profCount>=3?'#4caf50':profCount>=1?'#ffb300':'rgba(255,255,255,.3)'};font-weight:bold;">${profCount}/5</td>
+      <td style="padding:7px 8px;text-align:center;color:${absCount?'#f55f6f':'rgba(255,255,255,.3)'};">${absCount||'—'}</td>
+    </tr>`;
+  });
+  table+='</tbody></table>';
+  container.innerHTML=table;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// HOMEROOM FILTER — General Priority Students tab
+// ═══════════════════════════════════════════════════════════════════
+let PS_HOMEROOM_FILTER = 'all';
+let PS_NATION_FILTER = 'all';
+
+const HR_PILL_STYLES = {
+  all:         { active:   'border:1.5px solid rgba(255,255,255,.55);background:rgba(255,255,255,.15);color:#fff;font-weight:600;',
+                 inactive: 'border:1px solid rgba(255,255,255,.12);background:transparent;color:rgba(255,255,255,.3);' },
+  Columbia:    { active:   'border:1.5px solid rgba(77,184,232,.85);background:rgba(77,184,232,.22);color:#4db8e8;font-weight:600;',
+                 inactive: 'border:1px solid rgba(77,184,232,.25);background:transparent;color:rgba(77,184,232,.45);' },
+  Emory:       { active:   'border:1.5px solid rgba(240,112,48,.85);background:rgba(240,112,48,.22);color:#f07030;font-weight:600;',
+                 inactive: 'border:1px solid rgba(240,112,48,.25);background:transparent;color:rgba(240,112,48,.45);' },
+  Vanderbilt:  { active:   'border:1.5px solid rgba(124,189,82,.85);background:rgba(124,189,82,.22);color:#7cbd52;font-weight:600;',
+                 inactive: 'border:1px solid rgba(124,189,82,.25);background:transparent;color:rgba(124,189,82,.45);' }
+};
+
+function refreshPSPills() {
+  const hr = PS_HOMEROOM_FILTER || 'all';
+  const allPS = typeof getPriorityStudentsFiltered === 'function' ? (() => {
+    const saved = PS_HOMEROOM_FILTER; PS_HOMEROOM_FILTER = 'all';
+    const all = getPriorityStudentsFiltered(); PS_HOMEROOM_FILTER = saved; return all;
+  })() : [];
+  const hrCounts = {};
+  allPS.forEach(s => { hrCounts[s.homeroom||'Unknown'] = (hrCounts[s.homeroom||'Unknown']||0)+1; });
+
+  ['all','Columbia','Emory','Vanderbilt'].forEach(h => {
+    const b = document.getElementById('ps-hr-' + h.toLowerCase());
+    if (!b) return;
+    const s = HR_PILL_STYLES[h];
+    const count = h === 'all' ? allPS.length : (hrCounts[h]||0);
+    b.style.cssText = (h === hr ? s.active : s.inactive) +
+      'padding:4px 11px;border-radius:6px;font-size:11px;cursor:pointer;font-family:Cinzel,serif;';
+    if (count === 0 && h !== 'all') { b.style.opacity = '0.25'; b.title = 'No '+h+' priority students'; }
+    else { b.style.opacity = ''; b.title = count + ' student' + (count!==1?'s':''); }
+    b.textContent = h === 'all' ? 'All ('+count+')' : h + (count ? ' ('+count+')' : '');
+  });
+  if (typeof refreshPSNationPills === 'function') refreshPSNationPills();
+}
+
+function setPSHomeroom(hr, btn) {
+  PS_HOMEROOM_FILTER = hr;
+  refreshPSPills();
+  renderPSDaily();
+  if (PS_CURRENT_VIEW === 'rollup') renderPSRollup();
+}
+
+function setPSNation(nat, btn) {
+  PS_NATION_FILTER = nat;
+  refreshPSNationPills();
+  renderPSDaily();
+  if (PS_CURRENT_VIEW === 'rollup') renderPSRollup();
+}
+
+function refreshPSNationPills() {
+  const nat = PS_NATION_FILTER || 'all';
+  const NAT_STYLES = {
+    all:   { active: 'border:1.5px solid rgba(255,255,255,.55);background:rgba(255,255,255,.15);color:#fff;font-weight:600;',
+             inactive: 'border:1px solid rgba(255,255,255,.12);background:transparent;color:rgba(255,255,255,.3);' },
+    Water: { active: 'border:1.5px solid rgba(77,184,232,.85);background:rgba(77,184,232,.22);color:#4db8e8;font-weight:600;',
+             inactive: 'border:1px solid rgba(77,184,232,.25);background:transparent;color:rgba(77,184,232,.45);' },
+    Fire:  { active: 'border:1.5px solid rgba(240,74,90,.85);background:rgba(240,74,90,.22);color:#f55f6f;font-weight:600;',
+             inactive: 'border:1px solid rgba(240,74,90,.25);background:transparent;color:rgba(240,74,90,.45);' },
+    Earth: { active: 'border:1.5px solid rgba(124,189,82,.85);background:rgba(124,189,82,.22);color:#7cbd52;font-weight:600;',
+             inactive: 'border:1px solid rgba(124,189,82,.25);background:transparent;color:rgba(124,189,82,.45);' }
+  };
+  ['all','Water','Fire','Earth'].forEach(n => {
+    const b = document.getElementById('ps-nat-' + n.toLowerCase());
+    if (!b) return;
+    const s = NAT_STYLES[n];
+    b.style.cssText = (n === nat ? s.active : s.inactive) +
+      'padding:4px 11px;border-radius:6px;font-size:11px;cursor:pointer;font-family:Cinzel,serif;';
+  });
+}
+
+// ── Filter state lives here; render functions read it directly ──
+
+// ═══════════════════════════════════════════════════════════════════
+// HOMEROOM FILTER — Teacher-specific PS tabs (Bowen & Alt)
+// ═══════════════════════════════════════════════════════════════════
+const TPS_HOMEROOM_FILTER = { bowen: 'all', alt: 'all' };
+const TPS_NATION_FILTER = { bowen: 'all', alt: 'all' };
+
+const TPS_NAT_STYLES = {
+  all:   { active: 'border:1.5px solid rgba(255,255,255,.55);background:rgba(255,255,255,.15);color:#fff;font-weight:600;',
+           inactive: 'border:1px solid rgba(255,255,255,.12);background:transparent;color:rgba(255,255,255,.3);' },
+  Water: { active: 'border:1.5px solid rgba(77,184,232,.85);background:rgba(77,184,232,.22);color:#4db8e8;font-weight:600;',
+           inactive: 'border:1px solid rgba(77,184,232,.25);background:transparent;color:rgba(77,184,232,.45);' },
+  Fire:  { active: 'border:1.5px solid rgba(240,74,90,.85);background:rgba(240,74,90,.22);color:#f55f6f;font-weight:600;',
+           inactive: 'border:1px solid rgba(240,74,90,.25);background:transparent;color:rgba(240,74,90,.45);' },
+  Earth: { active: 'border:1.5px solid rgba(124,189,82,.85);background:rgba(124,189,82,.22);color:#7cbd52;font-weight:600;',
+           inactive: 'border:1px solid rgba(124,189,82,.25);background:transparent;color:rgba(124,189,82,.45);' }
+};
+
+function setTPSHomeroom(g, hr, btn) {
+  TPS_HOMEROOM_FILTER[g] = hr;
+  ['all','Columbia','Emory','Vanderbilt'].forEach(h => {
+    const b = document.getElementById('tps-hr-' + h.toLowerCase() + '-' + g);
+    if (!b) return;
+    const s = HR_PILL_STYLES[h];
+    b.style.cssText = (h === hr ? s.active : s.inactive) +
+      'padding:4px 11px;border-radius:6px;font-size:11px;cursor:pointer;font-family:Cinzel,serif;';
+  });
+  renderTeacherPSCards(g);
+  const rp = document.getElementById('tps-panel-rollup-' + g);
+  if (rp && rp.style.display !== 'none') renderTeacherPSRollup(g);
+}
+
+function setTPSNation(g, nat, btn) {
+  TPS_NATION_FILTER[g] = nat;
+  refreshTPSNationPills(g);
+  renderTeacherPSCards(g);
+  const rp = document.getElementById('tps-panel-rollup-' + g);
+  if (rp && rp.style.display !== 'none') renderTeacherPSRollup(g);
+}
+
+function refreshTPSNationPills(g) {
+  const nat = TPS_NATION_FILTER[g] || 'all';
+  ['all','Water','Fire','Earth'].forEach(n => {
+    const b = document.getElementById('tps-nat-' + n.toLowerCase() + '-' + g);
+    if (!b) return;
+    const s = TPS_NAT_STYLES[n];
+    b.style.cssText = (n === nat ? s.active : s.inactive) +
+      'padding:4px 11px;border-radius:6px;font-size:11px;cursor:pointer;font-family:Cinzel,serif;';
+  });
+}
+
+// Safe filtered getter — no wrapping, just inline filter logic.
+// Called by renderTeacherPSCards and renderTeacherPSRollup instead of getTeacherStudents().
+function getTeacherStudentsFiltered(group) {
+  const g = group.toLowerCase();
+  const src = (typeof students !== 'undefined' ? students :
+               typeof RAW_STUDENTS !== 'undefined' ? RAW_STUDENTS : []);
+  const base = src.filter(s => (s.group || '').toLowerCase() === g);
+  console.log('[TPS] getTeacherStudentsFiltered:', g, 'src size:', src.length, 'base (group match):', base.length, 'TPS_HOMEROOM_FILTER:', TPS_HOMEROOM_FILTER?.[g], 'TPS_NATION_FILTER:', TPS_NATION_FILTER?.[g]);
+  const HR = ['Columbia','Emory','Vanderbilt'];
+  const NA = {Water:0,Fire:1,Earth:2};
+  base.sort((a,b) => {
+    const hd = (HR.indexOf(a.homeroom||'')<0?99:HR.indexOf(a.homeroom||'')) -
+               (HR.indexOf(b.homeroom||'')<0?99:HR.indexOf(b.homeroom||''));
+    if (hd) return hd;
+    const nd = (NA[a.nation]??9)-(NA[b.nation]??9);
+    if (nd) return nd;
+    return (a.last||'').localeCompare(b.last||'');
+  });
+  const hr = TPS_HOMEROOM_FILTER[g] || 'all';
+  const nat = TPS_NATION_FILTER[g] || 'all';
+  let out = hr === 'all' ? base : base.filter(s => (s.homeroom||'') === hr);
+  out = nat === 'all' ? out : out.filter(s => (s.nation||'') === nat);
+  return out;
+}
+
+// Safe filtered getter for the general Priority Students tab.
+function getPriorityStudentsFiltered() {
+  const PRIORITY_KEYS = typeof PRIORITY_STUDENT_KEYS !== 'undefined' ? PRIORITY_STUDENT_KEYS : [];
+  const src = typeof students !== 'undefined' ? students : [];
+  const HR_ORD = ['Columbia','Emory','Vanderbilt'];
+  const NA_ORD = {Water:0,Fire:1,Earth:2};
+  let ps = PRIORITY_KEYS.map(key => {
+    const [last, first] = key.split('_');
+    return src.find(s => s.last === last && s.first === first) ||
+           src.find(s => s.last === last) ||
+           { last, first, homeroom:'Emory', nation:'Fire', ia1:null, ia2:null,
+             w25_pct:null, skills_goal:'', habit_goal:'', lowest3:'', chi:0, iep:0, ell:0 };
+  }).filter(Boolean);
+  ps.sort((a,b) => {
+    const hd = (HR_ORD.indexOf(a.homeroom||'')<0?99:HR_ORD.indexOf(a.homeroom||'')) -
+               (HR_ORD.indexOf(b.homeroom||'')<0?99:HR_ORD.indexOf(b.homeroom||''));
+    if (hd) return hd;
+    const nd = (NA_ORD[a.nation]??9)-(NA_ORD[b.nation]??9);
+    if (nd) return nd;
+    return (a.last||'').localeCompare(b.last||'');
+  });
+  const hr = typeof PS_HOMEROOM_FILTER !== 'undefined' ? PS_HOMEROOM_FILTER : 'all';
+  const nat = typeof PS_NATION_FILTER !== 'undefined' ? PS_NATION_FILTER : 'all';
+  let out = hr === 'all' ? ps : ps.filter(s => (s.homeroom||'') === hr);
+  out = nat === 'all' ? out : out.filter(s => (s.nation||'') === nat);
+  return out;
+}
 </script>
 <!-- ══ SEATING CENTER SECTION ══════════════════════════════════════ -->
 <section class="section" id="seatcenter">
@@ -10010,6 +11089,28 @@ function downloadETCSV(){
     </div>
   </div>
 </section>
+
+<!-- ═══ BOWEN PRIORITY STUDENTS ═══ -->
+<section class="section tps-section" id="bowenpriority">
+  <div class="sec-head">
+    <h2 style="color:#ffa040;font-family:'Cinzel',serif;">🟠 Bowen Priority Students</h2>
+    <p>Daily mastery, effort, skill &amp; habit use, attendance, and weekly arc — Bowen homeroom priority students only.</p>
+  </div>
+  <div id="bowen-ps-app"></div>
+</section>
+
+<!-- ═══ ALT PRIORITY STUDENTS ═══ -->
+<section class="section tps-section" id="altpriority">
+  <div class="sec-head">
+    <h2 style="color:#7ab4ff;font-family:'Cinzel',serif;">🔵 Alt Priority Students</h2>
+    <p>Daily mastery, effort, skill &amp; habit use, attendance, and weekly arc — Alt homeroom priority students only.</p>
+  </div>
+  <div id="alt-ps-app"></div>
+</section>
+
+
+
+
 
 </body>
 
@@ -10951,5 +12052,552 @@ async function scLoadFromSheets(){
   row2.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;';
   toolbar.parentElement.insertBefore(row2, toolbar.nextSibling);
 })();
+// ═══════════════════════════════════════════════════════════════════
+// PRIORITY STUDENTS — 11 identified G7 ELA students
+// ═══════════════════════════════════════════════════════════════════
+
+const PRIORITY_STUDENT_KEYS = [
+  'Cabell_Naliyah', 'Castro_Jaiden', 'Colon_Evan', 'Crespo_Angel',
+  'Dawkins_Michael', 'Dreher_Aizen', 'Hodge_Bryce', 'Jaiteh_Ibrahim',
+  'Jenkins_Paige', 'Lagares_Logan', 'McLeod_Ryan'
+];
+
+// Daily log: { 'YYYY-MM-DD': { 'Last_First': { mastery, effort, skillUse, habitUse, engagement, absent, notes } } }
+let PS_DAILY_LOG = {};
+let PS_CURRENT_VIEW = 'daily';
+let _psSheetTimer = null; // debounce timer for sheet pushes
+
+function psDateStr(d){ return d.toISOString().slice(0,10); }
+function psToday(){ return psDateStr(new Date()); }
+
+// ── Sort order: Columbia → Emory → Vanderbilt, then by nation within homeroom ──
+const HOMEROOM_ORDER = ['Columbia','Emory','Vanderbilt'];
+const NATION_ORDER   = {'Water':0,'Fire':1,'Earth':2};
+
+function getPriorityStudents(){
+  const ps = PRIORITY_STUDENT_KEYS.map(key => {
+    const [last, first] = key.split('_');
+    return students.find(s => s.last === last && s.first === first) ||
+           students.find(s => s.last === last) ||
+           { last, first, homeroom:'Emory', nation:'Fire', ia1:null, ia2:null, w25_pct:null,
+             skills_goal:'', habit_goal:'', lowest3:'', chi:0, iep:0, ell:0 };
+  }).filter(Boolean);
+
+  // Sort by homeroom order, then nation, then last name
+  ps.sort((a,b)=>{
+    const hA = HOMEROOM_ORDER.indexOf(a.homeroom||''), hB = HOMEROOM_ORDER.indexOf(b.homeroom||'');
+    const hDiff = (hA<0?99:hA) - (hB<0?99:hB);
+    if(hDiff !== 0) return hDiff;
+    const nDiff = (NATION_ORDER[a.nation]??9) - (NATION_ORDER[b.nation]??9);
+    if(nDiff !== 0) return nDiff;
+    return (a.last||'').localeCompare(b.last||'');
+  });
+  return ps;
+}
+
+function getPSKey(s){ return s.last + '_' + s.first; }
+
+// ── Shorten goal text to teacher-facing shorthand ──
+// Extracts the standard code + a 3-5 word descriptor from the full student goal
+function psShorthand(goalText){
+  if(!goalText) return '';
+  // Try to pull standard code e.g. RI.7.1, RL.7.6, HB.ANN etc
+  const codeMatch = goalText.match(/\(([A-Z]{2}[\.\w]+(?:\s+[\w\/]+)?)\)/);
+  const code = codeMatch ? codeMatch[1].replace(/\s+/g,'') : '';
+  // Extract the action verb phrase — what comes after "I will be able to"
+  const verbMatch = goalText.match(/I will be able to (.+?)(?:\(|\bby\b|\bmby\b|\.)/i);
+  let verb = verbMatch ? verbMatch[1].trim() : '';
+  // Truncate verb to ≤4 words
+  verb = verb.split(/\s+/).slice(0,4).join(' ');
+  if(code && verb) return `${code}: ${verb}`;
+  if(code) return code;
+  return verb || goalText.slice(0,30);
+}
+
+function initPriorityStudents(){
+  const dp = document.getElementById('psDayPicker');
+  if(dp && !dp.value) dp.value = psToday();
+  const wp = document.getElementById('psWeekPicker');
+  if(wp && !wp.value){
+    const d = new Date(); d.setDate(d.getDate() - d.getDay() + 1);
+    wp.value = psDateStr(d);
+  }
+  try {
+    const raw = localStorage.getItem('ps_daily_log');
+    if(raw) PS_DAILY_LOG = JSON.parse(raw);
+  } catch(e){}
+  updatePSDayLabel();
+  renderPSDaily();
+  renderPSScores();
+  renderPSRollup();
+}
+
+function updatePSDayLabel(){
+  const dp = document.getElementById('psDayPicker');
+  const lbl = document.getElementById('psDayLabel');
+  if(!dp || !lbl) return;
+  const d = new Date(dp.value + 'T00:00:00');
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  lbl.textContent = days[d.getDay()] + ' ' + months[d.getMonth()] + ' ' + d.getDate();
+}
+
+function psDayNav(dir){
+  const dp = document.getElementById('psDayPicker');
+  if(!dp) return;
+  if(dir === 0){ dp.value = psToday(); }
+  else {
+    const d = new Date(dp.value + 'T00:00:00');
+    d.setDate(d.getDate() + dir);
+    dp.value = psDateStr(d);
+  }
+  updatePSDayLabel();
+  renderPSDaily();
+}
+
+function setPSView(view, el){
+  PS_CURRENT_VIEW = view;
+  document.querySelectorAll('.ps-view-btn').forEach(b=>{
+    b.style.background = 'transparent';
+    b.style.borderColor = 'rgba(255,255,255,.15)';
+    b.style.color = 'rgba(255,255,255,.5)';
+  });
+  el.style.background = 'rgba(240,74,90,.2)';
+  el.style.borderColor = 'rgba(240,74,90,.5)';
+  el.style.color = '#f55f6f';
+  document.getElementById('ps-panel-daily').style.display   = view==='daily'   ? '' : 'none';
+  document.getElementById('ps-panel-rollup').style.display  = view==='rollup'  ? '' : 'none';
+  document.getElementById('ps-panel-scores').style.display  = view==='scores'  ? '' : 'none';
+  if(view==='rollup'){ renderPSRollup(); refreshPSPills(); }
+  if(view==='scores') renderPSScores();
+  if(view==='daily') refreshPSPills();
+}
+
+function getPSDayEntry(date, key){
+  if(!PS_DAILY_LOG[date]) PS_DAILY_LOG[date] = {};
+  if(!PS_DAILY_LOG[date][key]) PS_DAILY_LOG[date][key] = {
+    mastery:'', effort:'', skillUse:false, habitUse:false,
+    engagement:'', absent:false, notes:''
+  };
+  return PS_DAILY_LOG[date][key];
+}
+
+// ── Every field change: save locally + debounce push to Sheets ──
+function setPSDayField(date, key, field, val){
+  getPSDayEntry(date, key)[field] = val;
+  try{ localStorage.setItem('ps_daily_log', JSON.stringify(PS_DAILY_LOG)); } catch(e){}
+
+  // Bidirectional sync: mastery → ET tracker + chi alignment
+  if(field === 'mastery'){
+    const si = students.findIndex(s => getPSKey(s) === key);
+    if(si >= 0 && val){
+      recordDailyProficiency(si, val);
+      etSelections[si] = val;
+      // If proficient, also sync chi award alignment
+      if(val === 'proficient'){
+        const ds = getTodayStandard ? getTodayStandard() : null;
+        if(ds) etSelections[si] = 'proficient';
+      }
+    }
+  }
+
+  // Debounced push to Sheets (wait 1.5s after last change)
+  clearTimeout(_psSheetTimer);
+  _psSheetTimer = setTimeout(()=>{ psPushToSheets(date); }, 1500);
+}
+
+// ── Push one day's data to Sheets ──
+async function psPushToSheets(date){
+  if(!SHEETS_ENABLED) return;
+  const ps = getPriorityStudents();
+  const rows = ps.map(s => {
+    const key = getPSKey(s);
+    const e = getPSDayEntry(date, key);
+    return {
+      date, student_key:key, first:s.first, last:s.last, homeroom:s.homeroom||'',
+      mastery:e.mastery||'', effort:e.effort||'',
+      skill_use:e.skillUse?1:0, habit_use:e.habitUse?1:0,
+      engagement:e.engagement||'', absent:e.absent?1:0, notes:e.notes||''
+    };
+  });
+  try{
+    await sheetsPost({ action:'savePrioritySession', date, rows });
+  } catch(err){ console.warn('PS sheets push failed:', err); }
+}
+
+// ── Render homeroom divider ──
+function psHomeroomDivider(label, color){
+  return `<div style="grid-column:1/-1;padding:4px 8px;margin-top:6px;
+    background:${color};border-radius:6px;
+    font-family:'Cinzel',serif;font-size:9px;font-weight:700;letter-spacing:.12em;
+    color:rgba(255,255,255,.7);">${label}</div>`;
+}
+
+function renderPSDaily(){
+  const grid = document.getElementById('ps-daily-grid');
+  if(!grid) return;
+  const date = document.getElementById('psDayPicker')?.value || psToday();
+  const ps = getPriorityStudentsFiltered();
+  refreshPSPills();
+
+  // Update standard banner
+  const ds = getTodayStandard ? getTodayStandard() : null;
+  const stdLbl = document.getElementById('ps-std-label');
+  if(stdLbl) stdLbl.textContent = ds
+    ? `${ds.standard} — ${ds.label}`
+    : "Not set — use Priority Tasks tab to set today's standard";
+
+  let html = '';
+  let lastHomeroom = null;
+
+  ps.forEach(s => {
+    const key = getPSKey(s);
+    const entry = getPSDayEntry(date, key);
+    const nc = s.nation==='Water'?'var(--water-l)':s.nation==='Fire'?'var(--ember)':'var(--earth-l)';
+    const natIcon = {Water:'🌊',Fire:'🔥',Earth:'🪨'}[s.nation]||'';
+    const iepBadge = s.iep ? `<span style="background:rgba(212,168,67,.15);color:var(--gold);font-size:8px;padding:1px 5px;border-radius:3px;">IEP</span>` : '';
+    const ellBadge = s.ell ? `<span style="background:rgba(77,184,232,.15);color:var(--water-l);font-size:8px;padding:1px 5px;border-radius:3px;">ELL</span>` : '';
+
+    // Homeroom divider
+    if(s.homeroom !== lastHomeroom){
+      lastHomeroom = s.homeroom;
+      const hrColor = s.homeroom==='Columbia'?'rgba(77,184,232,.12)':
+                      s.homeroom==='Emory'?'rgba(240,112,48,.12)':'rgba(124,189,82,.12)';
+      html += psHomeroomDivider(s.homeroom||'Unknown', hrColor);
+    }
+
+    const mastColors = {proficient:'rgba(82,199,136,.18)',approaching:'rgba(212,168,67,.13)',emerging:'rgba(240,74,90,.13)','':`rgba(255,255,255,.03)`};
+    const cardBg = mastColors[entry.mastery] || mastColors[''];
+    const mastBorder = entry.mastery==='proficient'?'rgba(82,199,136,.4)':entry.mastery==='approaching'?'rgba(212,168,67,.3)':entry.mastery==='emerging'?'rgba(240,74,90,.3)':'rgba(240,74,90,.15)';
+
+    // Skill/Habit shorthands
+    const skillShort = psShorthand(s.skills_goal);
+    const habitShort = psShorthand(s.habit_goal);
+
+    // Recent ET arc
+    const si = students.indexOf(s);
+    const recentSessions = etSessionHistory.slice(0,5).map(sess=>{
+      const r = sess.results?.find(r=>r.si===si);
+      return r ? {date:sess.date, std:sess.standard, level:r.level} : null;
+    }).filter(Boolean);
+
+    html += `<div style="background:${cardBg};border:1px solid ${mastBorder};border-radius:10px;padding:14px;position:relative;transition:all .25s;">
+      ${entry.absent ? '<div style="position:absolute;top:6px;right:8px;background:rgba(240,74,90,.45);color:#f55f6f;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:.06em;">ABSENT</div>' : ''}
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+        <span style="font-size:15px;">${natIcon}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:800;color:${nc};font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.first} ${s.last}</div>
+          <div style="font-size:9px;opacity:.5;display:flex;gap:4px;align-items:center;flex-wrap:wrap;">${s.homeroom||''} ${iepBadge}${ellBadge}</div>
+        </div>
+        <button onclick="setPSDayField('${date}','${key}','absent',${!entry.absent});renderPSDaily()"
+          style="flex-shrink:0;background:${entry.absent?'rgba(240,74,90,.3)':'rgba(255,255,255,.05)'};
+          border:1px solid rgba(240,74,90,.3);border-radius:5px;
+          color:${entry.absent?'#f55f6f':'rgba(255,255,255,.35)'};
+          font-size:9px;padding:3px 7px;cursor:pointer;white-space:nowrap;">
+          ${entry.absent?'✓ Absent':'Absent'}
+        </button>
+      </div>
+
+      <!-- Skill + Habit shorthand badges -->
+      ${(skillShort||habitShort) ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;">
+        ${skillShort ? `<div style="font-size:8px;padding:2px 6px;border-radius:4px;background:rgba(82,199,136,.1);border:1px solid rgba(82,199,136,.2);color:#52c788;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="Skill goal: ${s.skills_goal}">🎯 ${skillShort}</div>` : ''}
+        ${habitShort ? `<div style="font-size:8px;padding:2px 6px;border-radius:4px;background:rgba(212,168,67,.1);border:1px solid rgba(212,168,67,.2);color:var(--gold);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="Habit goal: ${s.habit_goal}">💪 ${habitShort}</div>` : ''}
+      </div>` : ''}
+
+      <!-- Mastery -->
+      <div style="margin-bottom:8px;">
+        <div style="font-size:8px;opacity:.45;font-family:'Cinzel',serif;letter-spacing:.08em;margin-bottom:4px;">MASTERY</div>
+        <div style="display:flex;gap:3px;">
+          ${['proficient','approaching','emerging'].map(lvl=>`
+            <button onclick="setPSDayField('${date}','${key}','mastery','${entry.mastery===lvl?'':lvl}');renderPSDaily()"
+              style="flex:1;padding:5px 3px;border-radius:5px;font-size:9px;font-weight:700;cursor:pointer;transition:all .12s;
+              border:1.5px solid ${lvl==='proficient'?'rgba(82,199,136,.4)':lvl==='approaching'?'rgba(212,168,67,.4)':'rgba(240,74,90,.4)'};
+              background:${entry.mastery===lvl?(lvl==='proficient'?'rgba(82,199,136,.3)':lvl==='approaching'?'rgba(212,168,67,.25)':'rgba(240,74,90,.25)'):'rgba(255,255,255,.03)'};
+              color:${lvl==='proficient'?'#52c788':lvl==='approaching'?'var(--gold)':'#f55f6f'};">
+              ${lvl==='proficient'?'✅':lvl==='approaching'?'⚡':'🌱'} ${lvl.charAt(0).toUpperCase()+lvl.slice(1)}
+            </button>`).join('')}
+        </div>
+      </div>
+
+      <!-- Effort + Engagement -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">
+        <div>
+          <div style="font-size:8px;opacity:.45;font-family:'Cinzel',serif;letter-spacing:.08em;margin-bottom:3px;">EFFORT</div>
+          <select onchange="setPSDayField('${date}','${key}','effort',this.value)"
+            style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(212,168,67,.2);border-radius:5px;color:#e8d5a0;font-size:10px;padding:4px 6px;">
+            <option value="" ${!entry.effort?'selected':''}>— not set —</option>
+            <option value="High" ${entry.effort==='High'?'selected':''}>🔥 High</option>
+            <option value="Medium" ${entry.effort==='Medium'?'selected':''}>⚡ Medium</option>
+            <option value="Low" ${entry.effort==='Low'?'selected':''}>💤 Low</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:8px;opacity:.45;font-family:'Cinzel',serif;letter-spacing:.08em;margin-bottom:3px;">ENGAGEMENT</div>
+          <select onchange="setPSDayField('${date}','${key}','engagement',this.value)"
+            style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(77,184,232,.2);border-radius:5px;color:#e8d5a0;font-size:10px;padding:4px 6px;">
+            <option value="" ${!entry.engagement?'selected':''}>— not set —</option>
+            <option value="Active" ${entry.engagement==='Active'?'selected':''}>🟢 Active</option>
+            <option value="Present" ${entry.engagement==='Present'?'selected':''}>🟡 Present</option>
+            <option value="Passive" ${entry.engagement==='Passive'?'selected':''}>🟠 Passive</option>
+            <option value="Off-task" ${entry.engagement==='Off-task'?'selected':''}>🔴 Off-task</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Skill / Habit used -->
+      <div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:10px;" title="${s.skills_goal}">
+          <input type="checkbox" ${entry.skillUse?'checked':''} onchange="setPSDayField('${date}','${key}','skillUse',this.checked)"
+            style="accent-color:#52c788;">
+          <span style="color:#52c788;">🎯</span> Used Skill
+        </label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:10px;" title="${s.habit_goal}">
+          <input type="checkbox" ${entry.habitUse?'checked':''} onchange="setPSDayField('${date}','${key}','habitUse',this.checked)"
+            style="accent-color:var(--gold);">
+          <span style="color:var(--gold);">💪</span> Used Habit
+        </label>
+      </div>
+
+      <!-- Notes — oninput for immediate capture, onblur to push to sheets -->
+      <textarea placeholder="Quick note for today…" rows="1"
+        id="ps-note-${key.replace(/[^a-z0-9]/gi,'_')}"
+        style="width:100%;background:rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.07);border-radius:5px;
+        color:#e8d5a0;font-size:10px;padding:5px 8px;resize:vertical;box-sizing:border-box;"
+        oninput="setPSDayField('${date}','${key}','notes',this.value)"
+        onblur="setPSDayField('${date}','${key}','notes',this.value)">${entry.notes||''}</textarea>
+
+      <!-- Recent ET arc -->
+      ${recentSessions.length ? `<div style="margin-top:6px;display:flex;gap:3px;flex-wrap:wrap;">
+        ${recentSessions.map(r=>`<span style="font-size:8px;padding:1px 5px;border-radius:3px;
+          background:${r.level==='proficient'?'rgba(82,199,136,.13)':r.level==='approaching'?'rgba(212,168,67,.1)':'rgba(240,74,90,.1)'};
+          color:${r.level==='proficient'?'#52c788':r.level==='approaching'?'var(--gold)':'#f55f6f'};"
+          title="${r.date} · ${r.std}">${r.std} ${r.level==='proficient'?'✅':r.level==='approaching'?'⚡':'🌱'}</span>`).join('')}
+      </div>` : ''}
+    </div>`;
+  });
+
+  grid.innerHTML = html;
+}
+
+function renderPSRollup(){
+  const grid = document.getElementById('ps-rollup-grid');
+  if(!grid) return;
+  const ps = getPriorityStudentsFiltered();
+
+  let weekStart = new Date((document.getElementById('psWeekPicker')?.value || psToday()) + 'T00:00:00');
+  const dow = weekStart.getDay();
+  weekStart.setDate(weekStart.getDate() - (dow === 0 ? 6 : dow - 1));
+  const days = [];
+  for(let i=0;i<5;i++){
+    const d = new Date(weekStart); d.setDate(d.getDate()+i);
+    days.push(psDateStr(d));
+  }
+  const dayLabels = ['Mon','Tue','Wed','Thu','Fri'];
+
+  const mastCell = (m, e) => {
+    if(!m && !e) return `<td style="text-align:center;opacity:.15;font-size:11px;">·</td>`;
+    if(e?.absent) return `<td style="text-align:center;font-size:11px;color:#f55f6f;" title="Absent">🚫</td>`;
+    if(!m) return `<td style="text-align:center;opacity:.2;font-size:11px;">—</td>`;
+    const icon = m==='proficient'?'✅':m==='approaching'?'⚡':'🌱';
+    // Also show effort/engagement mini-dot
+    const eff = e?.effort ? (e.effort==='High'?'🔥':e.effort==='Medium'?'⚡':'💤') : '';
+    return `<td style="text-align:center;font-size:12px;padding:4px;" title="${m}${e?.effort?' · '+e.effort:''}${e?.notes?' · '+e.notes:''}">${icon}${eff?`<span style="font-size:8px;display:block;opacity:.7;">${eff}</span>`:''}</td>`;
+  };
+
+  let htmlRows = '';
+  let lastHomeroom = null;
+
+  ps.forEach(s => {
+    const key = getPSKey(s);
+    const nc = s.nation==='Water'?'var(--water-l)':s.nation==='Fire'?'var(--ember)':'var(--earth-l)';
+    const iepBadge = s.iep ? ` <span style="font-size:7px;color:var(--gold);background:rgba(212,168,67,.15);padding:0 3px;border-radius:2px;">IEP</span>` : '';
+    const ellBadge = s.ell ? ` <span style="font-size:7px;color:var(--water-l);background:rgba(77,184,232,.15);padding:0 3px;border-radius:2px;">ELL</span>` : '';
+
+    // Homeroom separator row
+    if(s.homeroom !== lastHomeroom){
+      lastHomeroom = s.homeroom;
+      const hrBg = s.homeroom==='Columbia'?'rgba(77,184,232,.08)':s.homeroom==='Emory'?'rgba(240,112,48,.08)':'rgba(124,189,82,.08)';
+      htmlRows += `<tr style="background:${hrBg};">
+        <td colspan="${5+3}" style="padding:4px 10px;font-family:'Cinzel',serif;font-size:9px;font-weight:700;letter-spacing:.1em;opacity:.6;">${s.homeroom||'UNKNOWN'}</td>
+      </tr>`;
+    }
+
+    const profCount = days.filter(d => PS_DAILY_LOG[d]?.[key]?.mastery === 'proficient').length;
+    const absCount  = days.filter(d => PS_DAILY_LOG[d]?.[key]?.absent).length;
+
+    // IA scores
+    const ia1 = s.ia1 != null ? Math.round(s.ia1)+'%' : '—';
+    const ia2 = s.ia2 != null ? Math.round(s.ia2)+'%' : '—';
+    const ia2Color = s.ia2 != null ? (s.ia2>=80?'#52c788':s.ia2>=60?'#d4a843':'#f55f6f') : 'rgba(255,255,255,.3)';
+    const growth = s.ia2 != null && s.ia1 != null ? s.ia2 - s.ia1 : null;
+    const growthHtml = growth != null ? `<span style="font-size:8px;color:${growth>=0?'#52c788':'#f55f6f'};">${growth>=0?'▲':'▼'}${Math.abs(Math.round(growth))}</span>` : '';
+
+    // Skill/Habit shorthands
+    const skillShort = psShorthand(s.skills_goal);
+    const habitShort = psShorthand(s.habit_goal);
+
+    htmlRows += `<tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+      <td style="padding:7px 10px;min-width:140px;">
+        <div style="font-weight:700;color:${nc};font-size:12px;">${s.first} ${s.last}${iepBadge}${ellBadge}</div>
+        <div style="font-size:8px;opacity:.45;margin-top:1px;">${s.homeroom||''}</div>
+      </td>
+      <!-- IA1 / IA2 -->
+      <td style="padding:5px 7px;white-space:nowrap;text-align:center;">
+        <div style="font-size:9px;opacity:.5;">${ia1}</div>
+        <div style="font-size:11px;font-weight:700;color:${ia2Color};">${ia2} ${growthHtml}</div>
+      </td>
+      <!-- Skill shorthand -->
+      <td style="padding:5px 7px;max-width:160px;">
+        ${skillShort ? `<div style="font-size:8px;color:#52c788;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${s.skills_goal}">🎯 ${skillShort}</div>` : ''}
+        ${habitShort ? `<div style="font-size:8px;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;" title="${s.habit_goal}">💪 ${habitShort}</div>` : ''}
+      </td>
+      ${days.map(d => mastCell(PS_DAILY_LOG[d]?.[key]?.mastery, PS_DAILY_LOG[d]?.[key])).join('')}
+      <td style="text-align:center;font-size:11px;color:#52c788;font-weight:700;padding:5px;">${profCount}/5</td>
+      <td style="text-align:center;font-size:10px;opacity:.55;padding:5px;">${absCount>0?`🚫${absCount}`:''}</td>
+    </tr>`;
+  });
+
+  grid.innerHTML = `<div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead>
+        <tr style="background:rgba(240,74,90,.1);">
+          <th style="padding:8px 10px;text-align:left;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.08em;opacity:.7;">STUDENT</th>
+          <th style="padding:8px 7px;text-align:center;font-size:9px;opacity:.7;">IA1→IA2</th>
+          <th style="padding:8px 7px;text-align:left;font-size:9px;opacity:.7;">SKILL / HABIT</th>
+          ${dayLabels.map((d,i)=>`<th style="padding:8px;text-align:center;font-family:'Cinzel',serif;font-size:9px;opacity:.7;">${d}<br><span style="font-size:7px;opacity:.5;">${days[i].slice(5)}</span></th>`).join('')}
+          <th style="padding:8px;text-align:center;font-size:9px;opacity:.7;color:#52c788;">Prof.</th>
+          <th style="padding:8px;text-align:center;font-size:9px;opacity:.6;">Abs.</th>
+        </tr>
+      </thead>
+      <tbody>${htmlRows}</tbody>
+    </table>
+  </div>
+
+  <!-- Weekly notes -->
+  <div style="margin-top:18px;">
+    <div style="font-size:10px;font-family:'Cinzel',serif;letter-spacing:.08em;opacity:.55;margin-bottom:8px;">WEEKLY NOTES</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;">
+      ${ps.map(s => {
+        const key = getPSKey(s);
+        const nc = s.nation==='Water'?'var(--water-l)':s.nation==='Fire'?'var(--ember)':'var(--earth-l)';
+        const noteDivs = days.map(d => {
+          const e = PS_DAILY_LOG[d]?.[key];
+          if(!e?.notes && !e?.mastery) return '';
+          const icon = e.mastery==='proficient'?'✅':e.mastery==='approaching'?'⚡':e.mastery==='emerging'?'🌱':'';
+          return `<div style="font-size:9px;margin-bottom:2px;">
+            <span style="opacity:.4;font-size:8px;">${d.slice(5)}</span>
+            ${icon ? `<span style="margin:0 3px;">${icon}</span>` : ''}
+            ${e.notes ? `<span style="opacity:.8;">${e.notes}</span>` : ''}
+          </div>`;
+        }).join('');
+        if(!noteDivs.trim()) return '';
+        return `<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);border-radius:8px;padding:9px;">
+          <div style="font-weight:700;color:${nc};font-size:11px;margin-bottom:5px;">${s.first} ${s.last}</div>
+          ${noteDivs}
+        </div>`;
+      }).filter(Boolean).join('')}
+    </div>
+  </div>`;
+}
+
+function renderPSScores(){
+  const grid = document.getElementById('ps-scores-grid');
+  if(!grid) return;
+  const ps = getPriorityStudents();
+
+  const pctBar = (pct) => {
+    if(pct==null) return '<span style="opacity:.25;font-size:10px;">—</span>';
+    const color = pct>=80?'#52c788':pct>=60?'#d4a843':'#f55f6f';
+    return `<div style="display:flex;align-items:center;gap:5px;">
+      <span style="font-weight:700;color:${color};font-size:12px;">${Math.round(pct)}%</span>
+      <div style="width:44px;height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;">
+        <div style="width:${Math.min(100,pct)}%;height:100%;background:${color};border-radius:2px;"></div>
+      </div>
+    </div>`;
+  };
+
+  let html = '';
+  let lastHomeroom = null;
+
+  ps.forEach(s => {
+    const nc = s.nation==='Water'?'var(--water-l)':s.nation==='Fire'?'var(--ember)':'var(--earth-l)';
+    const w25 = (window.W25_MM_DATA || window._W25 || {})[s.last + '_' + s.first] || {};
+    const iepBadge = s.iep ? `<span style="font-size:8px;color:var(--gold);">IEP</span>` : '';
+    const ellBadge = s.ell ? `<span style="font-size:8px;color:var(--water-l);">ELL</span>` : '';
+    const growth = s.ia2 != null && s.ia1 != null ? s.ia2 - s.ia1 : null;
+    const growthHtml = growth != null ? `<span style="color:${growth>=0?'#52c788':'#f55f6f'};font-size:10px;"> ${growth>=0?'▲':'▼'}${Math.abs(growth).toFixed(1)}%</span>` : '';
+    const lowest = s.lowest3 ? s.lowest3.split('|').map(x=>x.trim()).filter(Boolean) : [];
+    const sKey = s.last + '_' + s.first;
+    const scores = studentScores?.[sKey] || {};
+    const quizScores = Object.entries(scores)
+      .filter(([k]) => k !== 'ia1' && k !== 'ia2')
+      .sort((a,b) => (b[1].date||'').localeCompare(a[1].date||''))
+      .slice(0,4);
+
+    if(s.homeroom !== lastHomeroom){
+      lastHomeroom = s.homeroom;
+      const hrBg = s.homeroom==='Columbia'?'rgba(77,184,232,.08)':s.homeroom==='Emory'?'rgba(240,112,48,.08)':'rgba(124,189,82,.08)';
+      html += `<tr style="background:${hrBg};">
+        <td colspan="6" style="padding:4px 12px;font-family:'Cinzel',serif;font-size:9px;font-weight:700;letter-spacing:.1em;opacity:.6;">${s.homeroom||'UNKNOWN'}</td>
+      </tr>`;
+    }
+
+    html += `<tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+      <td style="padding:10px 12px;white-space:nowrap;">
+        <div style="font-weight:800;color:${nc};font-size:13px;">${s.first} ${s.last} ${iepBadge}${ellBadge}</div>
+        <div style="font-size:9px;opacity:.45;">${s.homeroom||''} · ${s.bending_group||''}</div>
+      </td>
+      <td style="padding:8px;">${pctBar(s.ia1)}</td>
+      <td style="padding:8px;">${pctBar(s.ia2)}${growthHtml}</td>
+      <td style="padding:8px;">${pctBar(w25.w25_overall)}</td>
+      <td style="padding:8px;">
+        ${quizScores.length ? quizScores.map(([name,d])=>`
+          <div style="font-size:9px;white-space:nowrap;">
+            <span style="opacity:.45;">${name}:</span>
+            <span style="color:${(d.pct||0)>=80?'#52c788':(d.pct||0)>=60?'#d4a843':'#f55f6f'};font-weight:700;">${d.pct!=null?Math.round(d.pct)+'%':'—'}</span>
+          </div>`).join('') : '<span style="opacity:.25;font-size:10px;">No quiz data</span>'}
+      </td>
+      <td style="padding:8px;max-width:180px;">
+        ${lowest.slice(0,2).map(l=>`<div style="font-size:9px;opacity:.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l}</div>`).join('')}
+      </td>
+    </tr>`;
+  });
+
+  grid.innerHTML = `
+    <div style="font-size:9px;font-family:'Cinzel',serif;letter-spacing:.1em;opacity:.5;margin-bottom:10px;">
+      IA = Interim Assessment · W25 = Winter 2025 · Sorted by homeroom
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:rgba(240,74,90,.1);">
+            <th style="padding:8px 12px;text-align:left;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.08em;opacity:.7;">STUDENT</th>
+            <th style="padding:8px;text-align:left;font-size:9px;opacity:.7;">IA1</th>
+            <th style="padding:8px;text-align:left;font-size:9px;opacity:.7;">IA2 <span style="opacity:.5;">(Δ)</span></th>
+            <th style="padding:8px;text-align:left;font-size:9px;opacity:.7;">W25</th>
+            <th style="padding:8px;text-align:left;font-size:9px;opacity:.7;">Recent Quizzes</th>
+            <th style="padding:8px;text-align:left;font-size:9px;opacity:.7;">Lowest Standards</th>
+          </tr>
+        </thead>
+        <tbody>${html}</tbody>
+      </table>
+    </div>`;
+}
+
+async function psSaveSession(){
+  const date = document.getElementById('psDayPicker')?.value || psToday();
+  const status = document.getElementById('ps-save-status');
+  if(status) status.textContent = '⟳ Saving…';
+  await psPushToSheets(date);
+  if(status) status.textContent = `✓ Saved ${date} (${getPriorityStudents().length} students)`;
+  setTimeout(()=>{ if(status) status.textContent = ''; }, 3000);
+}
+
+// Make sure W25 data is accessible
+try{ window.W25_MM_DATA = W25_MM_DATA || window.W25_MM_DATA; } catch(e){}
+
+
+
 </script>
 </html>
