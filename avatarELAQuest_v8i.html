@@ -10430,7 +10430,7 @@ function scRenderStats(){
   hr.studentKeys.forEach(key=>{
     const sess=scSession[key]; if(!sess) return;
     totalDD   +=sess.dd||0; totalPart+=sess.participation||0; totalDisc+=sess.discussion||0;
-    if(sess.ptLevel){ marked++; if(sess.ptLevel==='proficient') prof++; else if(sess.ptLevel==='approaching') appr++; else emrg++; }
+    [sess.pt1,sess.pt2,sess.pt3].forEach(pt=>{ if(pt){ marked++; if(pt==='proficient') prof++; else if(pt==='approaching') appr++; else emrg++; } });
   });
   const pct=marked?Math.round(prof/marked*100):0;
   el.innerHTML=[
@@ -10556,7 +10556,7 @@ function scRenderActiveView(){
               if(heatMetric==='dd') val=sess.dd||0;
               else if(heatMetric==='participation') val=sess.participation||0;
               else if(heatMetric==='discussion') val=sess.discussion||0;
-              else if(heatMetric==='pt') val=sess.ptLevel==='proficient'?4:sess.ptLevel==='approaching'?2:sess.ptLevel==='emerging'?1:0;
+              else if(heatMetric==='pt'){ val=[sess.pt1,sess.pt2,sess.pt3].reduce((b,p)=>{ const v=p==='proficient'?4:p==='approaching'?2:p==='emerging'?1:0; return v>b?v:b; },0); }
               if(val>0) htClass=val<=1?'sc-ht-low':val<=3?'sc-ht-mid':val<=6?'sc-ht-high':'sc-ht-great';
             }
 
@@ -10566,36 +10566,48 @@ function scRenderActiveView(){
             if(sess.dd)            badges+=`<span class="sc-metric sc-metric-dd">🐉${sess.dd}</span>`;
             if(sess.participation) badges+=`<span class="sc-metric sc-metric-part">P:${sess.participation}</span>`;
             if(sess.discussion)    badges+=`<span class="sc-metric sc-metric-disc">D:${sess.discussion}</span>`;
-            if(sess.ptLevel){
-              const pc=sess.ptLevel==='proficient'?'sc-metric-prof':sess.ptLevel==='approaching'?'sc-metric-appr':'sc-metric-emrg';
-              const ps=sess.ptLevel==='proficient'?'✓P':sess.ptLevel==='approaching'?'~A':'▲E';
-              badges+=`<span class="sc-metric ${pc}">${ps}</span>`;
-            }
+            // PT slot helper
+            const ptSelClass=(slot,lvl)=>{
+              if(slot===lvl) return lvl==='proficient'?'sc-db-sel-prof':lvl==='approaching'?'sc-db-sel-appr':'sc-db-sel-emrg';
+              return '';
+            };
 
             if(scEditMode){
-              deskDiv.innerHTML=`
-                <div style="display:flex;align-items:flex-start;justify-content:space-between;">
-                  <div class="sc-desk-name" draggable="true" style="cursor:grab;"
-                    ondragstart="scDragStart('${kE}',${ci},${cli},${ri},${di},event)"
-                    ondragend="scDragEnd(event)">${name}</div>
-                  <button class="sc-desk-del" onclick="event.stopPropagation();scClearDesk(${ci},${cli},${ri},${di})">✕</button>
-                </div>
-                <div class="sc-desk-metrics">${badges||'<span style="font-size:8px;opacity:.25;">—</span>'}</div>`;
+              let ePTb='';
+              [{n:1,v:sess.pt1},{n:2,v:sess.pt2},{n:3,v:sess.pt3}].forEach(({n,v})=>{
+                if(v){ const ec=v==='proficient'?'sc-metric-prof':v==='approaching'?'sc-metric-appr':'sc-metric-emrg'; ePTb+=`<span class="sc-metric ${ec}">T${n}:${v==='proficient'?'P':v==='approaching'?'A':'E'}</span>`; }
+              });
+              deskDiv.innerHTML=
+                `<div style="display:flex;align-items:flex-start;justify-content:space-between;">`+
+                  `<div class="sc-desk-name" draggable="true" style="cursor:grab;" ondragstart="scDragStart('${kE}',${ci},${cli},${ri},${di},event)" ondragend="scDragEnd(event)">${name}</div>`+
+                  `<button class="sc-desk-del" onclick="event.stopPropagation();scClearDesk(${ci},${cli},${ri},${di})">✕</button>`+
+                `</div>`+
+                `<div class="sc-desk-metrics">${badges}${ePTb}</div>`;
               deskDiv.ondragover =e=>{e.preventDefault();deskDiv.classList.add('sc-drag-over');};
               deskDiv.ondragleave=()=>deskDiv.classList.remove('sc-drag-over');
               deskDiv.ondrop     =e=>scDropOnDesk(e,ci,cli,ri,di);
             } else {
-              deskDiv.innerHTML=`
-                <div class="sc-desk-name">${name}</div>
-                <div class="sc-desk-metrics">${badges}</div>
-                <div class="sc-desk-btns">
-                  <button class="sc-db sc-db-dd"      onclick="event.stopPropagation();scLog('${kE}','dd',1)">🐉+</button>
-                  <button class="sc-db sc-db-part"    onclick="event.stopPropagation();scLog('${kE}','participation',1)">Part+</button>
-                  <button class="sc-db sc-db-disc"    onclick="event.stopPropagation();scLog('${kE}','discussion',1)">Disc+</button>
-                  <button class="sc-db sc-db-pt-prof" onclick="event.stopPropagation();scSetPT('${kE}','proficient')">✓P</button>
-                  <button class="sc-db sc-db-pt-appr" onclick="event.stopPropagation();scSetPT('${kE}','approaching')">~A</button>
-                  <button class="sc-db sc-db-pt-emrg" onclick="event.stopPropagation();scSetPT('${kE}','emerging')">▲E</button>
-                </div>`;
+              const mkPTslot=(n,val,lbl)=>{
+                const sc=(lvl)=>val===lvl?(lvl==='proficient'?'sc-db-sel-prof':lvl==='approaching'?'sc-db-sel-appr':'sc-db-sel-emrg'):'';
+                return `<div class="sc-pt-slot"><span class="sc-pt-slot-label">${lbl}</span>`+
+                  `<button class="sc-db sc-db-pt-prof ${sc('proficient')}" onclick="event.stopPropagation();scSetPTSlot('${kE}',${n},'proficient')" title="T${n} Proficient">P</button>`+
+                  `<button class="sc-db sc-db-pt-appr ${sc('approaching')}" onclick="event.stopPropagation();scSetPTSlot('${kE}',${n},'approaching')" title="T${n} Approaching">A</button>`+
+                  `<button class="sc-db sc-db-pt-emrg ${sc('emerging')}" onclick="event.stopPropagation();scSetPTSlot('${kE}',${n},'emerging')" title="T${n} Emerging">E</button>`+
+                  `</div>`;
+              };
+              deskDiv.innerHTML=
+                `<div class="sc-desk-name">${name}</div>`+
+                `<div class="sc-desk-metrics">${badges}</div>`+
+                `<div class="sc-desk-actions">`+
+                  `<button class="sc-db sc-db-dd" onclick="event.stopPropagation();scLog('${kE}','dd',1)" title="Dragon Dollar +1">🐉+</button>`+
+                  `<button class="sc-db sc-db-part" onclick="event.stopPropagation();scLog('${kE}','participation',1)" title="Participation +1">Part+</button>`+
+                  `<button class="sc-db sc-db-disc" onclick="event.stopPropagation();scLog('${kE}','discussion',1)" title="Discussion +1">Disc+</button>`+
+                `</div>`+
+                `<div class="sc-pt-row">`+
+                  mkPTslot(1,sess.pt1,'T1')+
+                  mkPTslot(2,sess.pt2,'T2')+
+                  mkPTslot(3,sess.pt3,'T3')+
+                `</div>`;
               deskDiv.addEventListener('click',()=>scOpenDetail(key));
             }
           }
@@ -10668,13 +10680,15 @@ function scLog(key,field,delta){
   if(scDetailOpenKey===key) scOpenDetail(key);
 }
 
-function scSetPT(key,level){
-  if(!scSession[key]) scSession[key]={dd:0,participation:0,discussion:0,ptLevel:null,log:[]};
+function scSetPT(key,level){ scSetPTSlot(key,1,level); }
+function scSetPTSlot(key,slotNum,level){
+  if(!scSession[key]) scSession[key]={dd:0,participation:0,discussion:0,pt1:null,pt2:null,pt3:null,log:[]};
   const sess=scSession[key];
-  sess.ptLevel=(sess.ptLevel===level)?null:level;
+  const field='pt'+slotNum;
+  sess[field]=(sess[field]===level)?null:level;
   const ts=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-  sess.log.unshift(`${ts} — Priority Task → ${sess.ptLevel||'cleared'}`);
-  showToast(`${scKeyToName(key)} · PT → ${sess.ptLevel||'cleared'}`);
+  sess.log.unshift(ts+' — PT'+slotNum+' → '+(sess[field]||'cleared'));
+  showToast(scKeyToName(key)+' · PT'+slotNum+' → '+(sess[field]||'cleared'));
   scSaveLocal(); scRerenderAll(); scheduleSheetsSync();
   scPushStudentSession(key);
   if(scDetailOpenKey===key) scOpenDetail(key);
@@ -10791,7 +10805,8 @@ function scOpenDetail(key){
   const name=scKeyToName(key);
   const sess=scSession[key]||{dd:0,participation:0,discussion:0,ptLevel:null,log:[]};
   document.getElementById('scDetailName').textContent=name;
-  const ptColor=sess.ptLevel==='proficient'?'#52c788':sess.ptLevel==='approaching'?'var(--gold)':sess.ptLevel==='emerging'?'#e07070':'rgba(255,255,255,.3)';
+  const _allPT=[sess.pt1,sess.pt2,sess.pt3]; const _bPT=_allPT.includes('proficient')?'proficient':_allPT.includes('approaching')?'approaching':_allPT.includes('emerging')?'emerging':null;
+  const ptColor=_bPT==='proficient'?'#52c788':_bPT==='approaching'?'var(--gold)':_bPT==='emerging'?'#e07070':'rgba(255,255,255,.3)';
   const kE=key.replace(/'/g,"\\'");
   document.getElementById('scDetailBody').innerHTML=`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
@@ -10820,14 +10835,10 @@ function scOpenDetail(key){
           <button onclick="scLog('${kE}','discussion',-1)" style="padding:3px 7px;border-radius:5px;background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.25);cursor:pointer;font-size:10px;">-1</button>
         </div>
       </div>
-      <div style="background:rgba(42,37,32,.9);border:1px solid rgba(212,168,67,.12);border-radius:8px;padding:10px;text-align:center;">
-        <div style="font-size:18px;font-weight:800;color:${ptColor};min-height:30px;line-height:1.5;">${sess.ptLevel||'—'}</div>
-        <div style="font-size:9px;opacity:.4;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Priority Task</div>
-        <div style="display:flex;gap:3px;justify-content:center;flex-wrap:wrap;">
-          <button onclick="scSetPT('${kE}','proficient')"  style="padding:2px 7px;border-radius:4px;background:rgba(82,199,136,.12);border:1px solid rgba(82,199,136,.3);color:#52c788;cursor:pointer;font-size:9px;">✓P</button>
-          <button onclick="scSetPT('${kE}','approaching')" style="padding:2px 7px;border-radius:4px;background:rgba(212,168,67,.12);border:1px solid rgba(212,168,67,.3);color:var(--gold);cursor:pointer;font-size:9px;">~A</button>
-          <button onclick="scSetPT('${kE}','emerging')"    style="padding:2px 7px;border-radius:4px;background:rgba(224,112,112,.12);border:1px solid rgba(224,112,112,.3);color:#e07070;cursor:pointer;font-size:9px;">▲E</button>
-          ${sess.ptLevel?`<button onclick="scSetPT('${kE}',null)" style="padding:2px 6px;border-radius:4px;background:transparent;border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.25);cursor:pointer;font-size:9px;">✕</button>`:''}
+      <div style="background:rgba(42,37,32,.9);border:1px solid rgba(212,168,67,.12);border-radius:8px;padding:10px;grid-column:span 2;">
+        <div style="font-size:9px;opacity:.4;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;text-align:center;">Priority Tasks</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+          ${[1,2,3].map(n=>{const v=sess['pt'+n];const ring=(l)=>v===l?`;box-shadow:0 0 0 2px ${l==='proficient'?'#52c788':l==='approaching'?'var(--gold)':'#e07070'}`:'';const op=(l)=>v===l?'opacity:1;font-weight:900':'opacity:.4';return `<div style="text-align:center;"><div style="font-size:8px;font-family:'Cinzel',serif;opacity:.4;margin-bottom:4px;">T${n}</div><div style="display:flex;gap:2px;justify-content:center;">`+[['proficient','P','rgba(82,199,136,.18)','rgba(82,199,136,.5)','#52c788'],['approaching','A','rgba(212,168,67,.18)','rgba(212,168,67,.5)','var(--gold)'],['emerging','E','rgba(224,112,112,.18)','rgba(224,112,112,.5)','#e07070']].map(([lvl,lbl,bg,br,cl])=>`<button onclick="scSetPTSlot('${kE}',${n},'${lvl}')" style="padding:3px 7px;border-radius:4px;background:${bg};border:1px solid ${br};color:${cl};cursor:pointer;font-size:10px;${op(lvl)}${ring(lvl)}">${lbl}</button>`).join('')+`</div></div>`;}).join('')}
         </div>
       </div>
     </div>
@@ -10867,7 +10878,7 @@ function scResetSession(){
   const hr=scGetActiveHr(); if(!hr) return;
   if(!confirm(`Reset all live tracker data for ${hr.name}?\n\nClears Dragon Dollars, Participation, Discussion, and Priority Task.\nSeating layout is preserved.`)) return;
   hr.studentKeys.forEach(key=>{
-    scSession[key]={dd:0,participation:0,discussion:0,ptLevel:null,log:[]};
+    scSession[key]={dd:0,participation:0,discussion:0,pt1:null,pt2:null,pt3:null,log:[]};
   });
   scSaveLocal(); scRerenderAll();
   showToast('↺ Session reset for '+hr.name);
@@ -10893,7 +10904,7 @@ async function scPushStudentSession(key){
     student_key:key, first:s?.first||'', last:s?.last||'',
     homeroom:hr?.name||s?.homeroom||'', date:todayStr(),
     dd:sess.dd||0, participation:sess.participation||0,
-    discussion:sess.discussion||0, pt_level:sess.ptLevel||''
+    discussion:sess.discussion||0, pt_level:sess.pt1||'', pt_level2:sess.pt2||'', pt_level3:sess.pt3||''
   }).catch(()=>{});
 }
 
@@ -10919,7 +10930,10 @@ async function scLoadFromSheets(){
         if(row.dd!=null) s.dd=Number(row.dd)||0;
         if(row.participation!=null) s.participation=Number(row.participation)||0;
         if(row.discussion!=null) s.discussion=Number(row.discussion)||0;
-        if(row.pt_level) s.ptLevel=row.pt_level||null;
+        if(row.pt_level)  s.pt1=row.pt_level||null;
+        if(row.pt_level2) s.pt2=row.pt_level2||null;
+        if(row.pt_level3) s.pt3=row.pt_level3||null;
+        if(!s.pt1 && row.ptLevel) s.pt1=row.ptLevel;
       });
     }
     scSaveLocal(); scRerenderAll();
