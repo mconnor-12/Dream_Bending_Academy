@@ -10425,14 +10425,6 @@ function initTeacherPS(group){
     if(raw) TEACHER_PS_LOGS[g] = JSON.parse(raw);
   } catch(e){}
   const container = document.getElementById(g+'-ps-app');
-  console.log('[TPS] initTeacherPS:', g, 'container:', !!container, 'sec visible:', document.getElementById(g+'priority')?.classList.contains('visible'));
-  if(container && !container._tpsObserving) {
-    container._tpsObserving = true;
-    new MutationObserver(muts => {
-      for(const m of muts) if(m.type==='childList' && m.removedNodes.length)
-        console.warn('[TPS] CONTAINER CLEARED! stack:', new Error().stack.split('\\n').slice(1,4).join(' | '));
-    }).observe(container, {childList:true});
-  }
   const alreadyBuilt = container && container.querySelector('#tps-cards-'+g);
   if(alreadyBuilt){
     renderTeacherPSCards(g);
@@ -10622,8 +10614,7 @@ function renderTeacherPSCards(g){
   if(!container && overlay && overlay._tpsGroup === g) {
     container = overlay.querySelector('#tps-cards-'+g);
   }
-  console.log('[TPS] renderTeacherPSCards:', g, 'students:', ps.length, 'container:', !!container, 'c:', !!c);
-  if(ps.length>0) console.log('[TPS] first student:', ps[0].last, ps[0].first, 'group:', ps[0].group, 'homeroom:', ps[0].homeroom);
+  if(ps.length>0)
   if(!container) return;
 
   // Group by homeroom
@@ -10744,7 +10735,7 @@ function refreshTPSPills(g) {
       'padding:4px 11px;border-radius:6px;font-size:11px;cursor:pointer;font-family:Cinzel,serif;';
     if (isEmpty && h !== 'all') {
       b.style.opacity = '0.25';
-      b.title = 'No ' + h + ' students in this group';
+      b.title = 'No ' + h + ' students in this lane (Bowen/Alt are Emory + Vanderbilt only)';
     } else {
       b.style.opacity = '';
       b.title = count + ' student' + (count !== 1 ? 's' : '');
@@ -10972,7 +10963,6 @@ function getTeacherStudentsFiltered(group) {
   const src = (typeof students !== 'undefined' ? students :
                typeof RAW_STUDENTS !== 'undefined' ? RAW_STUDENTS : []);
   const base = src.filter(s => (s.group || '').toLowerCase() === g);
-  console.log('[TPS] getTeacherStudentsFiltered:', g, 'src size:', src.length, 'base (group match):', base.length, 'TPS_HOMEROOM_FILTER:', TPS_HOMEROOM_FILTER?.[g], 'TPS_NATION_FILTER:', TPS_NATION_FILTER?.[g]);
   const HR = ['Columbia','Emory','Vanderbilt'];
   const NA = {Water:0,Fire:1,Earth:2};
   base.sort((a,b) => {
